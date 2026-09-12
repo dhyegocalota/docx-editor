@@ -3961,6 +3961,41 @@ const diffSnapshotSchema: JsonSchema = objectSchema(
   },
   ['version', 'engine', 'fingerprint', 'coverage', 'payload'],
 );
+const diffApplyEligibilityBlockerSchema: JsonSchema = objectSchema(
+  {
+    code: {
+      type: 'string',
+      enum: [
+        'family-apply-lane-unavailable',
+        'header-footer-physical-lifecycle-unsafe',
+        'header-footer-tracked-lifecycle-unsupported',
+        'comment-replay-unsafe',
+        'comment-anchor-marker-semantics-unsafe',
+        'styles-replay-unsafe',
+        'numbering-replay-unsafe',
+        'section-reference-replay-unsafe',
+        'structural-paragraph-unsupported',
+      ],
+    },
+    message: { type: 'string' },
+    families: { type: 'array', items: { type: 'string' } },
+  },
+  ['code', 'message'],
+);
+const diffApplyModeEligibilitySchema: JsonSchema = objectSchema(
+  {
+    status: { type: 'string', enum: ['candidate', 'blocked'] },
+    blockers: { type: 'array', items: diffApplyEligibilityBlockerSchema },
+  },
+  ['status', 'blockers'],
+);
+const diffApplyEligibilitySchema: JsonSchema = objectSchema(
+  {
+    direct: diffApplyModeEligibilitySchema,
+    tracked: diffApplyModeEligibilitySchema,
+  },
+  ['direct', 'tracked'],
+);
 const diffPayloadSchema: JsonSchema = objectSchema(
   {
     version: { type: 'string', enum: ['sd-diff-payload/v1', 'sd-diff-payload/v2'] },
@@ -3969,6 +4004,7 @@ const diffPayloadSchema: JsonSchema = objectSchema(
     targetFingerprint: { type: 'string' },
     coverage: diffCoverageSchema,
     summary: diffSummarySchema,
+    applyEligibility: diffApplyEligibilitySchema,
     payload: { type: 'object', description: 'Opaque engine-owned diff data.' },
   },
   ['version', 'engine', 'baseFingerprint', 'targetFingerprint', 'coverage', 'summary', 'payload'],

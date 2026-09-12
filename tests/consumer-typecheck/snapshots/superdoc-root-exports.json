@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T17:10:47.590Z",
+  "generatedAt": "2026-09-12T20:21:13.295Z",
   "ticket": "SD-3212 PR A0",
   "package": "superdoc",
   "rootExport": {
@@ -48,9 +48,14 @@
         "ContextMenuSelectPayload",
         "ContextMenuSelectReadiness",
         "DOCX",
+        "DiffApplyEligibility",
+        "DiffApplyEligibilityBlocker",
+        "DiffApplyEligibilityBlockerCode",
+        "DiffApplyModeEligibility",
         "DiffApplyOperationReceipt",
         "DiffApplyResult",
         "DiffApplyReviewItem",
+        "DiffPayload",
         "DirectSurfaceRequest",
         "DocRange",
         "Document",
@@ -330,9 +335,14 @@
         "ContextMenuSelectPayload",
         "ContextMenuSelectReadiness",
         "DOCX",
+        "DiffApplyEligibility",
+        "DiffApplyEligibilityBlocker",
+        "DiffApplyEligibilityBlockerCode",
+        "DiffApplyModeEligibility",
         "DiffApplyOperationReceipt",
         "DiffApplyResult",
         "DiffApplyReviewItem",
+        "DiffPayload",
         "DirectSurfaceRequest",
         "DocRange",
         "Document",
@@ -609,11 +619,11 @@
     }
   },
   "counts": {
-    "types.import": 276,
-    "types.require": 276,
+    "types.import": 281,
+    "types.require": 281,
     "import": 10,
     "require": 10,
-    "union": 276
+    "union": 281
   },
   "divergences": {
     "typesImportVsRequire": {
@@ -658,9 +668,14 @@
         "ContextMenuSelectContext",
         "ContextMenuSelectPayload",
         "ContextMenuSelectReadiness",
+        "DiffApplyEligibility",
+        "DiffApplyEligibilityBlocker",
+        "DiffApplyEligibilityBlockerCode",
+        "DiffApplyModeEligibility",
         "DiffApplyOperationReceipt",
         "DiffApplyResult",
         "DiffApplyReviewItem",
+        "DiffPayload",
         "DirectSurfaceRequest",
         "DocRange",
         "Document",

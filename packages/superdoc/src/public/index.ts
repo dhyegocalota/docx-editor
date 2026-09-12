@@ -55,7 +55,16 @@ export type { DocumentSource } from '../core/types/index.js';
 export type { DocumentUploadSource } from '../core/types/index.js';
 export type { StructuredDocumentSource } from '../core/types/index.js';
 export type { DocumentApi } from '@superdoc/document-api';
-export type { DiffApplyOperationReceipt, DiffApplyResult, DiffApplyReviewItem } from '@superdoc/document-api';
+export type {
+  DiffApplyEligibility,
+  DiffApplyEligibilityBlocker,
+  DiffApplyEligibilityBlockerCode,
+  DiffApplyModeEligibility,
+  DiffApplyOperationReceipt,
+  DiffApplyResult,
+  DiffApplyReviewItem,
+  DiffPayload,
+} from '@superdoc/document-api';
 export type { DocumentMode } from '../core/types/index.js';
 export type { DocumentProtectionState } from '@superdoc/document-api';
 export type { EntityAddress } from '@superdoc/document-api';

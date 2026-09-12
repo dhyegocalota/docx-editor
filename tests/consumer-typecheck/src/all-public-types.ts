@@ -65,6 +65,11 @@ import type {
   DocumentSource,
   DocumentUploadSource,
   DocumentApi,
+  DiffApplyEligibility,
+  DiffApplyEligibilityBlocker,
+  DiffApplyEligibilityBlockerCode,
+  DiffApplyModeEligibility,
+  DiffPayload,
   DocumentMode,
   DocumentReplacementResult,
   DocumentProtectionState,
@@ -340,6 +345,11 @@ const _real_DocumentCollaborationConfig: AssertNotAny<DocumentCollaborationConfi
 const _real_DocumentSource: AssertNotAny<DocumentSource> = true;
 const _real_DocumentUploadSource: AssertNotAny<DocumentUploadSource> = true;
 const _real_DocumentApi: AssertNotAny<DocumentApi> = true;
+const _real_DiffApplyEligibility: AssertNotAny<DiffApplyEligibility> = true;
+const _real_DiffApplyEligibilityBlocker: AssertNotAny<DiffApplyEligibilityBlocker> = true;
+const _real_DiffApplyEligibilityBlockerCode: AssertNotAny<DiffApplyEligibilityBlockerCode> = true;
+const _real_DiffApplyModeEligibility: AssertNotAny<DiffApplyModeEligibility> = true;
+const _real_DiffPayload: AssertNotAny<DiffPayload> = true;
 const _real_DocumentMode: AssertNotAny<DocumentMode> = true;
 const _real_DocumentReplacementResult: AssertNotAny<DocumentReplacementResult> = true;
 const _real_DocumentProtectionState: AssertNotAny<DocumentProtectionState> = true;

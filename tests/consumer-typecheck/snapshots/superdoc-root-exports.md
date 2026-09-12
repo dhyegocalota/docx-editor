@@ -1,17 +1,17 @@
 # superdoc root export inventory (SD-3212 PR A0)
 
-Generated: 2026-09-08T17:10:47.590Z
+Generated: 2026-09-12T20:21:13.295Z
 Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 
 ## Counts
 
 | Source | Path | Count |
 |---|---|---|
-| types.import | `./dist/superdoc/src/public/index.d.ts` | 276 |
-| types.require | `./dist/superdoc/src/public/index.d.cts` | 276 |
+| types.import | `./dist/superdoc/src/public/index.d.ts` | 281 |
+| types.require | `./dist/superdoc/src/public/index.d.cts` | 281 |
 | import | `./dist/superdoc.es.js` | 10 |
 | require | `./dist/superdoc.cjs` | 10 |
-| **union** |  | **276** |
+| **union** |  | **281** |
 
 ## Divergences
 
@@ -19,7 +19,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 - types.require only (not in types.import): 0
 - ESM only (not in CJS): 0
 - CJS only (not in ESM): 0
-- typed but no runtime export (phantom risk): 266
+- typed but no runtime export (phantom risk): 271
 - runtime export but not typed (silent shadow on root): 0
 
 ### Type-only names (no runtime)
@@ -56,9 +56,14 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 - `ContextMenuSelectContext`
 - `ContextMenuSelectPayload`
 - `ContextMenuSelectReadiness`
+- `DiffApplyEligibility`
+- `DiffApplyEligibilityBlocker`
+- `DiffApplyEligibilityBlockerCode`
+- `DiffApplyModeEligibility`
 - `DiffApplyOperationReceipt`
 - `DiffApplyResult`
 - `DiffApplyReviewItem`
+- `DiffPayload`
 - `DirectSurfaceRequest`
 - `DocRange`
 - `Document`
@@ -313,7 +318,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `CommentsLayout` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `CommentsResponsiveConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `CommentsType` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
-| `Config` | ✓ | ✓ |   |   | 31 |   | 7 | 3 | 0 |
+| `Config` | ✓ | ✓ |   |   | 34 |   | 14 | 3 | 0 |
 | `ContentControlActiveChangePayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `ContentControlClickPayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `ContentControlRef` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
@@ -328,14 +333,19 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `ContextMenuSelectContext` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `ContextMenuSelectPayload` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `ContextMenuSelectReadiness` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
-| `DOCX` | ✓ | ✓ | ✓ | ✓ | 1 |   | 353 | 73 | 0 |
+| `DOCX` | ✓ | ✓ | ✓ | ✓ | 1 |   | 383 | 73 | 0 |
+| `DiffApplyEligibility` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `DiffApplyEligibilityBlocker` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `DiffApplyEligibilityBlockerCode` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `DiffApplyModeEligibility` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DiffApplyOperationReceipt` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DiffApplyResult` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DiffApplyReviewItem` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `DiffPayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DirectSurfaceRequest` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `DocRange` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
-| `Document` | ✓ | ✓ |   |   | 3 |   | 96 | 18 | 0 |
-| `DocumentApi` | ✓ | ✓ |   |   | 3 |   | 2 | 0 | 0 |
+| `Document` | ✓ | ✓ |   |   | 3 |   | 100 | 18 | 0 |
+| `DocumentApi` | ✓ | ✓ |   |   | 4 |   | 2 | 0 | 0 |
 | `DocumentCollaborationConfig` | ✓ | ✓ |   |   | 2 |   | 7 | 0 | 0 |
 | `DocumentDataSource` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DocumentMode` | ✓ | ✓ |   |   | 4 |   | 1 | 2 | 0 |
@@ -364,7 +374,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `FontsChangedSource` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `FontsConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `FontsResolvedPayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
-| `HTML` | ✓ | ✓ | ✓ | ✓ | 1 |   | 51 | 0 | 0 |
+| `HTML` | ✓ | ✓ | ✓ | ✓ | 1 |   | 50 | 0 | 0 |
 | `HyperlinkActivationContext` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `HyperlinkActivationHandler` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `HyperlinkActivationResult` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
@@ -373,7 +383,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `HyperlinksConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `IntentSurfaceRequest` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `InteractionConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
-| `Layout` | ✓ | ✓ |   |   | 2 |   | 2 | 0 | 0 |
+| `Layout` | ✓ | ✓ |   |   | 2 |   | 3 | 0 | 0 |
 | `LayoutEngineOptions` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `LayoutFragment` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `LayoutMetrics` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
@@ -407,7 +417,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `SelectionInfo` | ✓ | ✓ |   |   | 1 |   | 1 | 0 | 0 |
 | `StoryLocator` | ✓ | ✓ |   |   | 1 |   | 4 | 0 | 0 |
 | `StructuredDocumentSource` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
-| `SuperDoc` | ✓ | ✓ | ✓ | ✓ | 31 |   | 259 | 44 | 0 |
+| `SuperDoc` | ✓ | ✓ | ✓ | ✓ | 33 |   | 290 | 44 | 0 |
 | `SuperDocActiveEditorExtensions` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocActiveEditorExtensionsCommands` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocActiveEditorExtensionsDiagnostics` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |

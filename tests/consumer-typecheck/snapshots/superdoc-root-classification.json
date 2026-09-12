@@ -1,13 +1,13 @@
 {
   "generatedAt": "2026-09-02T00:00:00.000Z",
   "summary": {
-    "total": 276,
+    "total": 281,
     "byBucket": {
       "legacy-root": 3,
-      "supported-root": 273
+      "supported-root": 278
     },
     "byConfidence": {
-      "high": 228,
+      "high": 233,
       "medium": 48
     }
   },
@@ -387,6 +387,50 @@
       "inCjs": true
     },
     {
+      "name": "DiffApplyEligibility",
+      "bucket": "supported-root",
+      "rationale": "Document API compare result type that reports known direct and tracked apply blockers before mutation.",
+      "confidence": "high",
+      "source": "doc-api",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "DiffApplyEligibilityBlocker",
+      "bucket": "supported-root",
+      "rationale": "Document API compare result type for a machine-readable apply blocker and its affected families.",
+      "confidence": "high",
+      "source": "doc-api",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "DiffApplyEligibilityBlockerCode",
+      "bucket": "supported-root",
+      "rationale": "Stable Document API reason-code union for compare-time apply blockers.",
+      "confidence": "high",
+      "source": "doc-api",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "DiffApplyModeEligibility",
+      "bucket": "supported-root",
+      "rationale": "Document API compare result type for one change mode's candidate or blocked posture.",
+      "confidence": "high",
+      "source": "doc-api",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
       "name": "DiffApplyOperationReceipt",
       "bucket": "supported-root",
       "rationale": "Document API receipt returned for one applied diff operation.",
@@ -412,6 +456,17 @@
       "name": "DiffApplyReviewItem",
       "bucket": "supported-root",
       "rationale": "Document API review item returned when a diff produces tracked changes.",
+      "confidence": "high",
+      "source": "doc-api",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "DiffPayload",
+      "bucket": "supported-root",
+      "rationale": "Document API diff.compare return type, including public summary and apply eligibility while retaining opaque engine payload data.",
       "confidence": "high",
       "source": "doc-api",
       "inDts": true,

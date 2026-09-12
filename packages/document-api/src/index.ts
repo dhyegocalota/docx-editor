@@ -429,6 +429,10 @@ import type {
   DiffApplyOptions,
   DiffApplyOperationReceipt,
   DiffApplyReviewItem,
+  DiffApplyEligibility,
+  DiffApplyModeEligibility,
+  DiffApplyEligibilityBlocker,
+  DiffApplyEligibilityBlockerCode,
 } from './diff/diff.types.js';
 export type {
   DiffSnapshot,
@@ -439,6 +443,10 @@ export type {
   DiffApplyOptions,
   DiffApplyOperationReceipt,
   DiffApplyReviewItem,
+  DiffApplyEligibility,
+  DiffApplyModeEligibility,
+  DiffApplyEligibilityBlocker,
+  DiffApplyEligibilityBlockerCode,
 } from './diff/diff.types.js';
 import type { ExportAdapter, ExportApi } from './export/export.js';
 import { executeExportToDocx } from './export/export.js';
