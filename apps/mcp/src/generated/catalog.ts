@@ -98,7 +98,7 @@ export const MCP_TOOL_CATALOG = {
     },
     {
       "toolName": "superdoc_edit",
-      "description": "The primary tool for inserting content into documents. ALWAYS use action \"insert\" with type \"markdown\" to create headings, paragraphs, or any block content: this is faster and creates proper document structure in one call. Do NOT use superdoc_create for headings or paragraphs. The markdown parser creates headings from # markers (# = Heading1, ## = Heading2), bold from **text**, italic from *text*, and numbered/bullet lists. Position markdown inserts with \"target\" (a BlockNodeAddress like {kind:\"block\", nodeType, nodeId}) and \"placement\" (before, after, insideStart, insideEnd). Without a target, content appends at the end of the document. IMPORTANT: After a markdown insert, analyze the document context (what kind of document, how titles and body text are styled) and follow up with ONE superdoc_mutations call to format inserted blocks so they look like they belong. Each format.apply step accepts \"inline\" (fontFamily, fontSize, bold, underline, color), \"alignment\", and \"scope\" in the same step. Use scope: \"block\" so formatting covers the entire paragraph. Copy the exact property values from the existing get_content blocks (fontFamily, fontSize, color, alignment, bold, underline). Do NOT invent values: use what the blocks show. Also supports replace, delete, and undo/redo. For replace and delete, pass a \"ref\" from superdoc_search or superdoc_get_content blocks. A search ref covers only the matched substring; a block ref covers the entire block text, so use block refs when rewriting or shortening whole paragraphs. For multi-step redlines or whole-clause rewrites, prefer superdoc_mutations with where:{by:\"block\", nodeType, nodeId} from superdoc_get_content action \"blocks\" includeText:true rather than relying on text selectors. Refs expire after any mutation; always re-search before the next edit. For 2+ edits that must succeed or fail atomically, use superdoc_mutations instead. Supports \"dryRun\" to preview changes and \"changeMode: tracked\" to record edits as tracked changes (not supported for markdown/html inserts). Do NOT build \"target\" objects manually when a ref is available; prefer \"ref\" for simpler, more reliable targeting.\n\nEXAMPLES:\n  1. {\"action\":\"insert\",\"type\":\"markdown\",\"target\":{\"kind\":\"block\",\"nodeType\":\"paragraph\",\"nodeId\":\"<nodeId>\"},\"placement\":\"before\",\"value\":\"# Executive Summary\\n\\nThis agreement sets forth the principal terms...\"}\n  2. {\"action\":\"insert\",\"type\":\"markdown\",\"value\":\"# Section Title\\n\\nParagraph content here.\\n\\n# Another Section\\n\\nMore content with **bold** and *italic*.\"}\n  3. {\"action\":\"replace\",\"ref\":\"<handle.ref>\",\"text\":\"new text here\"}\n  4. {\"action\":\"delete\",\"ref\":\"<handle.ref>\"}\n  5. {\"action\":\"undo\"}",
+      "description": "The primary tool for inserting content into documents. ALWAYS use action \"insert\" with type \"markdown\" to create headings, paragraphs, or any block content: this is faster and creates proper document structure in one call. Do NOT use superdoc_create for headings or paragraphs. The markdown parser creates headings from # markers (# = Heading1, ## = Heading2), bold from **text**, italic from *text*, and numbered/bullet lists. Position markdown inserts with \"target\" (a BlockNodeAddress like {kind:\"block\", nodeType, nodeId}) and \"placement\" (before, after, insideStart, insideEnd). Without a target, content appends at the end of the document. IMPORTANT: After a markdown insert, analyze the document context (what kind of document, how titles and body text are styled) and follow up with ONE superdoc_mutations call to format inserted blocks so they look like they belong. Each format.apply step accepts \"inline\" (fontFamily, fontSize, bold, underline, color), \"alignment\", and \"scope\" in the same step. Use scope: \"block\" so formatting covers the entire paragraph. Copy the exact property values from the existing get_content blocks (fontFamily, fontSize, color, alignment, bold, underline). Do NOT invent values: use what the blocks show. Also supports replace, delete, and undo/redo. For replace and delete, pass a \"ref\" from superdoc_search or superdoc_get_content blocks. `delete` removes a text range and leaves the block container; `delete_block` removes the entire block node by its `{kind:'block',nodeType,nodeId}` address; `delete_block_range` removes a contiguous span of top-level blocks. A search ref covers only the matched substring; a block ref covers the entire block text, so use block refs when rewriting or shortening whole paragraphs. For multi-step redlines or whole-clause rewrites, prefer superdoc_mutations with where:{by:\"block\", nodeType, nodeId} from superdoc_get_content action \"blocks\" includeText:true rather than relying on text selectors. Refs expire after any mutation; always re-search before the next edit. For 2+ edits that must succeed or fail atomically, use superdoc_mutations instead. Supports \"dryRun\" to preview changes and \"changeMode: tracked\" to record edits as tracked changes (not supported for markdown/html inserts). Do NOT build \"target\" objects manually when a ref is available; prefer \"ref\" for simpler, more reliable targeting.\n\nEXAMPLES:\n  1. {\"action\":\"insert\",\"type\":\"markdown\",\"target\":{\"kind\":\"block\",\"nodeType\":\"paragraph\",\"nodeId\":\"<nodeId>\"},\"placement\":\"before\",\"value\":\"# Executive Summary\\n\\nThis agreement sets forth the principal terms...\"}\n  2. {\"action\":\"insert\",\"type\":\"markdown\",\"value\":\"# Section Title\\n\\nParagraph content here.\\n\\n# Another Section\\n\\nMore content with **bold** and *italic*.\"}\n  3. {\"action\":\"replace\",\"ref\":\"<handle.ref>\",\"text\":\"new text here\"}\n  4. {\"action\":\"delete\",\"ref\":\"<handle.ref>\"}\n  5. {\"action\":\"delete_block\",\"target\":{\"kind\":\"block\",\"nodeType\":\"heading\",\"nodeId\":\"<nodeId>\"}}\n  6. {\"action\":\"undo\"}",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -106,12 +106,14 @@ export const MCP_TOOL_CATALOG = {
             "type": "string",
             "enum": [
               "delete",
+              "delete_block",
+              "delete_block_range",
               "insert",
               "redo",
               "replace",
               "undo"
             ],
-            "description": "The action to perform. One of: delete, insert, redo, replace, undo."
+            "description": "The action to perform. One of: delete, delete_block, delete_block_range, insert, redo, replace, undo."
           },
           "force": {
             "type": "boolean",
@@ -134,2216 +136,2224 @@ export const MCP_TOOL_CATALOG = {
               {
                 "oneOf": [
                   {
-                    "$ref": "#/$defs/BlockNodeAddress",
+                    "oneOf": [
+                      {
+                        "$ref": "#/$defs/BlockNodeAddress",
+                        "description": "Block address for structural insertion: {kind:'block', nodeType:'...', nodeId:'...'}."
+                      },
+                      {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "selection",
+                                "type": "string"
+                              },
+                              "start": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "text",
+                                        "type": "string"
+                                      },
+                                      "blockId": {
+                                        "type": "string"
+                                      },
+                                      "offset": {
+                                        "type": "number"
+                                      },
+                                      "story": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "body",
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterSlot",
+                                                "type": "string"
+                                              },
+                                              "section": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "section",
+                                                    "type": "string"
+                                                  },
+                                                  "sectionId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "sectionId"
+                                                ]
+                                              },
+                                              "headerFooterKind": {
+                                                "enum": [
+                                                  "header",
+                                                  "footer"
+                                                ]
+                                              },
+                                              "variant": {
+                                                "enum": [
+                                                  "default",
+                                                  "first",
+                                                  "even"
+                                                ]
+                                              },
+                                              "resolution": {
+                                                "enum": [
+                                                  "effective",
+                                                  "explicit"
+                                                ]
+                                              },
+                                              "onWrite": {
+                                                "enum": [
+                                                  "materializeIfInherited",
+                                                  "editResolvedPart",
+                                                  "error"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "section",
+                                              "headerFooterKind",
+                                              "variant"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterPart",
+                                                "type": "string"
+                                              },
+                                              "refId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "refId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "footnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "endnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "textbox",
+                                                "type": "string"
+                                              },
+                                              "textboxId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "textboxId"
+                                            ]
+                                          }
+                                        ],
+                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "blockId",
+                                      "offset"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "nodeEdge",
+                                        "type": "string"
+                                      },
+                                      "node": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "block",
+                                            "type": "string"
+                                          },
+                                          "nodeType": {
+                                            "enum": [
+                                              "paragraph",
+                                              "heading",
+                                              "table",
+                                              "tableOfContents",
+                                              "sdt",
+                                              "image"
+                                            ]
+                                          },
+                                          "nodeId": {
+                                            "type": "string"
+                                          },
+                                          "story": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "body",
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterSlot",
+                                                    "type": "string"
+                                                  },
+                                                  "section": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "const": "section",
+                                                        "type": "string"
+                                                      },
+                                                      "sectionId": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "sectionId"
+                                                    ]
+                                                  },
+                                                  "headerFooterKind": {
+                                                    "enum": [
+                                                      "header",
+                                                      "footer"
+                                                    ]
+                                                  },
+                                                  "variant": {
+                                                    "enum": [
+                                                      "default",
+                                                      "first",
+                                                      "even"
+                                                    ]
+                                                  },
+                                                  "resolution": {
+                                                    "enum": [
+                                                      "effective",
+                                                      "explicit"
+                                                    ]
+                                                  },
+                                                  "onWrite": {
+                                                    "enum": [
+                                                      "materializeIfInherited",
+                                                      "editResolvedPart",
+                                                      "error"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "section",
+                                                  "headerFooterKind",
+                                                  "variant"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterPart",
+                                                    "type": "string"
+                                                  },
+                                                  "refId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "refId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "footnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "endnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "textbox",
+                                                    "type": "string"
+                                                  },
+                                                  "textboxId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "textboxId"
+                                                ]
+                                              }
+                                            ],
+                                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "nodeType",
+                                          "nodeId"
+                                        ]
+                                      },
+                                      "edge": {
+                                        "enum": [
+                                          "before",
+                                          "after"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "node",
+                                      "edge"
+                                    ]
+                                  }
+                                ],
+                                "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
+                              },
+                              "end": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "text",
+                                        "type": "string"
+                                      },
+                                      "blockId": {
+                                        "type": "string"
+                                      },
+                                      "offset": {
+                                        "type": "number"
+                                      },
+                                      "story": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "body",
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterSlot",
+                                                "type": "string"
+                                              },
+                                              "section": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "section",
+                                                    "type": "string"
+                                                  },
+                                                  "sectionId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "sectionId"
+                                                ]
+                                              },
+                                              "headerFooterKind": {
+                                                "enum": [
+                                                  "header",
+                                                  "footer"
+                                                ]
+                                              },
+                                              "variant": {
+                                                "enum": [
+                                                  "default",
+                                                  "first",
+                                                  "even"
+                                                ]
+                                              },
+                                              "resolution": {
+                                                "enum": [
+                                                  "effective",
+                                                  "explicit"
+                                                ]
+                                              },
+                                              "onWrite": {
+                                                "enum": [
+                                                  "materializeIfInherited",
+                                                  "editResolvedPart",
+                                                  "error"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "section",
+                                              "headerFooterKind",
+                                              "variant"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterPart",
+                                                "type": "string"
+                                              },
+                                              "refId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "refId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "footnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "endnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "textbox",
+                                                "type": "string"
+                                              },
+                                              "textboxId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "textboxId"
+                                            ]
+                                          }
+                                        ],
+                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "blockId",
+                                      "offset"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "nodeEdge",
+                                        "type": "string"
+                                      },
+                                      "node": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "block",
+                                            "type": "string"
+                                          },
+                                          "nodeType": {
+                                            "enum": [
+                                              "paragraph",
+                                              "heading",
+                                              "table",
+                                              "tableOfContents",
+                                              "sdt",
+                                              "image"
+                                            ]
+                                          },
+                                          "nodeId": {
+                                            "type": "string"
+                                          },
+                                          "story": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "body",
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterSlot",
+                                                    "type": "string"
+                                                  },
+                                                  "section": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "const": "section",
+                                                        "type": "string"
+                                                      },
+                                                      "sectionId": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "sectionId"
+                                                    ]
+                                                  },
+                                                  "headerFooterKind": {
+                                                    "enum": [
+                                                      "header",
+                                                      "footer"
+                                                    ]
+                                                  },
+                                                  "variant": {
+                                                    "enum": [
+                                                      "default",
+                                                      "first",
+                                                      "even"
+                                                    ]
+                                                  },
+                                                  "resolution": {
+                                                    "enum": [
+                                                      "effective",
+                                                      "explicit"
+                                                    ]
+                                                  },
+                                                  "onWrite": {
+                                                    "enum": [
+                                                      "materializeIfInherited",
+                                                      "editResolvedPart",
+                                                      "error"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "section",
+                                                  "headerFooterKind",
+                                                  "variant"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterPart",
+                                                    "type": "string"
+                                                  },
+                                                  "refId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "refId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "footnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "endnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "textbox",
+                                                    "type": "string"
+                                                  },
+                                                  "textboxId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "textboxId"
+                                                ]
+                                              }
+                                            ],
+                                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "nodeType",
+                                          "nodeId"
+                                        ]
+                                      },
+                                      "edge": {
+                                        "enum": [
+                                          "before",
+                                          "after"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "node",
+                                      "edge"
+                                    ]
+                                  }
+                                ],
+                                "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
+                              },
+                              "story": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "body",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "headerFooterSlot",
+                                        "type": "string"
+                                      },
+                                      "section": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "section",
+                                            "type": "string"
+                                          },
+                                          "sectionId": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "sectionId"
+                                        ]
+                                      },
+                                      "headerFooterKind": {
+                                        "enum": [
+                                          "header",
+                                          "footer"
+                                        ]
+                                      },
+                                      "variant": {
+                                        "enum": [
+                                          "default",
+                                          "first",
+                                          "even"
+                                        ]
+                                      },
+                                      "resolution": {
+                                        "enum": [
+                                          "effective",
+                                          "explicit"
+                                        ]
+                                      },
+                                      "onWrite": {
+                                        "enum": [
+                                          "materializeIfInherited",
+                                          "editResolvedPart",
+                                          "error"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "section",
+                                      "headerFooterKind",
+                                      "variant"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "headerFooterPart",
+                                        "type": "string"
+                                      },
+                                      "refId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "refId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "footnote",
+                                        "type": "string"
+                                      },
+                                      "noteId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "noteId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "endnote",
+                                        "type": "string"
+                                      },
+                                      "noteId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "noteId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "textbox",
+                                        "type": "string"
+                                      },
+                                      "textboxId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "textboxId"
+                                    ]
+                                  }
+                                ],
+                                "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "start",
+                              "end"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "block",
+                                "type": "string"
+                              },
+                              "nodeType": {
+                                "enum": [
+                                  "paragraph",
+                                  "heading",
+                                  "listItem",
+                                  "table",
+                                  "tableRow",
+                                  "tableCell",
+                                  "tableOfContents",
+                                  "image",
+                                  "sdt"
+                                ]
+                              },
+                              "nodeId": {
+                                "type": "string"
+                              },
+                              "story": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "body",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "headerFooterSlot",
+                                        "type": "string"
+                                      },
+                                      "section": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "section",
+                                            "type": "string"
+                                          },
+                                          "sectionId": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "sectionId"
+                                        ]
+                                      },
+                                      "headerFooterKind": {
+                                        "enum": [
+                                          "header",
+                                          "footer"
+                                        ]
+                                      },
+                                      "variant": {
+                                        "enum": [
+                                          "default",
+                                          "first",
+                                          "even"
+                                        ]
+                                      },
+                                      "resolution": {
+                                        "enum": [
+                                          "effective",
+                                          "explicit"
+                                        ]
+                                      },
+                                      "onWrite": {
+                                        "enum": [
+                                          "materializeIfInherited",
+                                          "editResolvedPart",
+                                          "error"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "section",
+                                      "headerFooterKind",
+                                      "variant"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "headerFooterPart",
+                                        "type": "string"
+                                      },
+                                      "refId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "refId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "footnote",
+                                        "type": "string"
+                                      },
+                                      "noteId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "noteId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "endnote",
+                                        "type": "string"
+                                      },
+                                      "noteId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "noteId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "textbox",
+                                        "type": "string"
+                                      },
+                                      "textboxId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "textboxId"
+                                    ]
+                                  }
+                                ],
+                                "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "nodeType",
+                              "nodeId"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "selection",
+                                "type": "string"
+                              },
+                              "start": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "text",
+                                        "type": "string"
+                                      },
+                                      "blockId": {
+                                        "type": "string"
+                                      },
+                                      "offset": {
+                                        "type": "number"
+                                      },
+                                      "story": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "body",
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterSlot",
+                                                "type": "string"
+                                              },
+                                              "section": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "section",
+                                                    "type": "string"
+                                                  },
+                                                  "sectionId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "sectionId"
+                                                ]
+                                              },
+                                              "headerFooterKind": {
+                                                "enum": [
+                                                  "header",
+                                                  "footer"
+                                                ]
+                                              },
+                                              "variant": {
+                                                "enum": [
+                                                  "default",
+                                                  "first",
+                                                  "even"
+                                                ]
+                                              },
+                                              "resolution": {
+                                                "enum": [
+                                                  "effective",
+                                                  "explicit"
+                                                ]
+                                              },
+                                              "onWrite": {
+                                                "enum": [
+                                                  "materializeIfInherited",
+                                                  "editResolvedPart",
+                                                  "error"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "section",
+                                              "headerFooterKind",
+                                              "variant"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterPart",
+                                                "type": "string"
+                                              },
+                                              "refId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "refId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "footnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "endnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "textbox",
+                                                "type": "string"
+                                              },
+                                              "textboxId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "textboxId"
+                                            ]
+                                          }
+                                        ],
+                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "blockId",
+                                      "offset"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "nodeEdge",
+                                        "type": "string"
+                                      },
+                                      "node": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "block",
+                                            "type": "string"
+                                          },
+                                          "nodeType": {
+                                            "enum": [
+                                              "paragraph",
+                                              "heading",
+                                              "table",
+                                              "tableOfContents",
+                                              "sdt",
+                                              "image"
+                                            ]
+                                          },
+                                          "nodeId": {
+                                            "type": "string"
+                                          },
+                                          "story": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "body",
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterSlot",
+                                                    "type": "string"
+                                                  },
+                                                  "section": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "const": "section",
+                                                        "type": "string"
+                                                      },
+                                                      "sectionId": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "sectionId"
+                                                    ]
+                                                  },
+                                                  "headerFooterKind": {
+                                                    "enum": [
+                                                      "header",
+                                                      "footer"
+                                                    ]
+                                                  },
+                                                  "variant": {
+                                                    "enum": [
+                                                      "default",
+                                                      "first",
+                                                      "even"
+                                                    ]
+                                                  },
+                                                  "resolution": {
+                                                    "enum": [
+                                                      "effective",
+                                                      "explicit"
+                                                    ]
+                                                  },
+                                                  "onWrite": {
+                                                    "enum": [
+                                                      "materializeIfInherited",
+                                                      "editResolvedPart",
+                                                      "error"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "section",
+                                                  "headerFooterKind",
+                                                  "variant"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterPart",
+                                                    "type": "string"
+                                                  },
+                                                  "refId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "refId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "footnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "endnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "textbox",
+                                                    "type": "string"
+                                                  },
+                                                  "textboxId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "textboxId"
+                                                ]
+                                              }
+                                            ],
+                                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "nodeType",
+                                          "nodeId"
+                                        ]
+                                      },
+                                      "edge": {
+                                        "enum": [
+                                          "before",
+                                          "after"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "node",
+                                      "edge"
+                                    ]
+                                  }
+                                ],
+                                "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
+                              },
+                              "end": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "text",
+                                        "type": "string"
+                                      },
+                                      "blockId": {
+                                        "type": "string"
+                                      },
+                                      "offset": {
+                                        "type": "number"
+                                      },
+                                      "story": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "body",
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterSlot",
+                                                "type": "string"
+                                              },
+                                              "section": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "section",
+                                                    "type": "string"
+                                                  },
+                                                  "sectionId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "sectionId"
+                                                ]
+                                              },
+                                              "headerFooterKind": {
+                                                "enum": [
+                                                  "header",
+                                                  "footer"
+                                                ]
+                                              },
+                                              "variant": {
+                                                "enum": [
+                                                  "default",
+                                                  "first",
+                                                  "even"
+                                                ]
+                                              },
+                                              "resolution": {
+                                                "enum": [
+                                                  "effective",
+                                                  "explicit"
+                                                ]
+                                              },
+                                              "onWrite": {
+                                                "enum": [
+                                                  "materializeIfInherited",
+                                                  "editResolvedPart",
+                                                  "error"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "section",
+                                              "headerFooterKind",
+                                              "variant"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "headerFooterPart",
+                                                "type": "string"
+                                              },
+                                              "refId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "refId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "footnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "endnote",
+                                                "type": "string"
+                                              },
+                                              "noteId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "noteId"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "const": "story",
+                                                "type": "string"
+                                              },
+                                              "storyType": {
+                                                "const": "textbox",
+                                                "type": "string"
+                                              },
+                                              "textboxId": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "storyType",
+                                              "textboxId"
+                                            ]
+                                          }
+                                        ],
+                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "blockId",
+                                      "offset"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "nodeEdge",
+                                        "type": "string"
+                                      },
+                                      "node": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "block",
+                                            "type": "string"
+                                          },
+                                          "nodeType": {
+                                            "enum": [
+                                              "paragraph",
+                                              "heading",
+                                              "table",
+                                              "tableOfContents",
+                                              "sdt",
+                                              "image"
+                                            ]
+                                          },
+                                          "nodeId": {
+                                            "type": "string"
+                                          },
+                                          "story": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "body",
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterSlot",
+                                                    "type": "string"
+                                                  },
+                                                  "section": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "const": "section",
+                                                        "type": "string"
+                                                      },
+                                                      "sectionId": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "sectionId"
+                                                    ]
+                                                  },
+                                                  "headerFooterKind": {
+                                                    "enum": [
+                                                      "header",
+                                                      "footer"
+                                                    ]
+                                                  },
+                                                  "variant": {
+                                                    "enum": [
+                                                      "default",
+                                                      "first",
+                                                      "even"
+                                                    ]
+                                                  },
+                                                  "resolution": {
+                                                    "enum": [
+                                                      "effective",
+                                                      "explicit"
+                                                    ]
+                                                  },
+                                                  "onWrite": {
+                                                    "enum": [
+                                                      "materializeIfInherited",
+                                                      "editResolvedPart",
+                                                      "error"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "section",
+                                                  "headerFooterKind",
+                                                  "variant"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "headerFooterPart",
+                                                    "type": "string"
+                                                  },
+                                                  "refId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "refId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "footnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "endnote",
+                                                    "type": "string"
+                                                  },
+                                                  "noteId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "noteId"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "story",
+                                                    "type": "string"
+                                                  },
+                                                  "storyType": {
+                                                    "const": "textbox",
+                                                    "type": "string"
+                                                  },
+                                                  "textboxId": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "storyType",
+                                                  "textboxId"
+                                                ]
+                                              }
+                                            ],
+                                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "nodeType",
+                                          "nodeId"
+                                        ]
+                                      },
+                                      "edge": {
+                                        "enum": [
+                                          "before",
+                                          "after"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "node",
+                                      "edge"
+                                    ]
+                                  }
+                                ],
+                                "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
+                              },
+                              "story": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "body",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "headerFooterSlot",
+                                        "type": "string"
+                                      },
+                                      "section": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "section",
+                                            "type": "string"
+                                          },
+                                          "sectionId": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "sectionId"
+                                        ]
+                                      },
+                                      "headerFooterKind": {
+                                        "enum": [
+                                          "header",
+                                          "footer"
+                                        ]
+                                      },
+                                      "variant": {
+                                        "enum": [
+                                          "default",
+                                          "first",
+                                          "even"
+                                        ]
+                                      },
+                                      "resolution": {
+                                        "enum": [
+                                          "effective",
+                                          "explicit"
+                                        ]
+                                      },
+                                      "onWrite": {
+                                        "enum": [
+                                          "materializeIfInherited",
+                                          "editResolvedPart",
+                                          "error"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "section",
+                                      "headerFooterKind",
+                                      "variant"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "headerFooterPart",
+                                        "type": "string"
+                                      },
+                                      "refId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "refId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "footnote",
+                                        "type": "string"
+                                      },
+                                      "noteId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "noteId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "endnote",
+                                        "type": "string"
+                                      },
+                                      "noteId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "noteId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "story",
+                                        "type": "string"
+                                      },
+                                      "storyType": {
+                                        "const": "textbox",
+                                        "type": "string"
+                                      },
+                                      "textboxId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "storyType",
+                                      "textboxId"
+                                    ]
+                                  }
+                                ],
+                                "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "start",
+                              "end"
+                            ]
+                          }
+                        ]
+                      }
+                    ],
                     "description": "Block address for structural insertion: {kind:'block', nodeType:'...', nodeId:'...'}."
                   },
                   {
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "const": "selection",
-                            "type": "string"
-                          },
-                          "start": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "text",
-                                    "type": "string"
-                                  },
-                                  "blockId": {
-                                    "type": "string"
-                                  },
-                                  "offset": {
-                                    "type": "number"
-                                  },
-                                  "story": {
-                                    "oneOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "body",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterSlot",
-                                            "type": "string"
-                                          },
-                                          "section": {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "section",
-                                                "type": "string"
-                                              },
-                                              "sectionId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "sectionId"
-                                            ]
-                                          },
-                                          "headerFooterKind": {
-                                            "enum": [
-                                              "header",
-                                              "footer"
-                                            ]
-                                          },
-                                          "variant": {
-                                            "enum": [
-                                              "default",
-                                              "first",
-                                              "even"
-                                            ]
-                                          },
-                                          "resolution": {
-                                            "enum": [
-                                              "effective",
-                                              "explicit"
-                                            ]
-                                          },
-                                          "onWrite": {
-                                            "enum": [
-                                              "materializeIfInherited",
-                                              "editResolvedPart",
-                                              "error"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "section",
-                                          "headerFooterKind",
-                                          "variant"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterPart",
-                                            "type": "string"
-                                          },
-                                          "refId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "refId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "footnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "endnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "textbox",
-                                            "type": "string"
-                                          },
-                                          "textboxId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "textboxId"
-                                        ]
-                                      }
-                                    ],
-                                    "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "blockId",
-                                  "offset"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "nodeEdge",
-                                    "type": "string"
-                                  },
-                                  "node": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "block",
-                                        "type": "string"
-                                      },
-                                      "nodeType": {
-                                        "enum": [
-                                          "paragraph",
-                                          "heading",
-                                          "table",
-                                          "tableOfContents",
-                                          "sdt",
-                                          "image"
-                                        ]
-                                      },
-                                      "nodeId": {
-                                        "type": "string"
-                                      },
-                                      "story": {
-                                        "oneOf": [
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "body",
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterSlot",
-                                                "type": "string"
-                                              },
-                                              "section": {
-                                                "type": "object",
-                                                "properties": {
-                                                  "kind": {
-                                                    "const": "section",
-                                                    "type": "string"
-                                                  },
-                                                  "sectionId": {
-                                                    "type": "string"
-                                                  }
-                                                },
-                                                "required": [
-                                                  "kind",
-                                                  "sectionId"
-                                                ]
-                                              },
-                                              "headerFooterKind": {
-                                                "enum": [
-                                                  "header",
-                                                  "footer"
-                                                ]
-                                              },
-                                              "variant": {
-                                                "enum": [
-                                                  "default",
-                                                  "first",
-                                                  "even"
-                                                ]
-                                              },
-                                              "resolution": {
-                                                "enum": [
-                                                  "effective",
-                                                  "explicit"
-                                                ]
-                                              },
-                                              "onWrite": {
-                                                "enum": [
-                                                  "materializeIfInherited",
-                                                  "editResolvedPart",
-                                                  "error"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "section",
-                                              "headerFooterKind",
-                                              "variant"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterPart",
-                                                "type": "string"
-                                              },
-                                              "refId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "refId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "footnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "endnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "textbox",
-                                                "type": "string"
-                                              },
-                                              "textboxId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "textboxId"
-                                            ]
-                                          }
-                                        ],
-                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "nodeType",
-                                      "nodeId"
-                                    ]
-                                  },
-                                  "edge": {
-                                    "enum": [
-                                      "before",
-                                      "after"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "node",
-                                  "edge"
-                                ]
-                              }
-                            ],
-                            "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
-                          },
-                          "end": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "text",
-                                    "type": "string"
-                                  },
-                                  "blockId": {
-                                    "type": "string"
-                                  },
-                                  "offset": {
-                                    "type": "number"
-                                  },
-                                  "story": {
-                                    "oneOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "body",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterSlot",
-                                            "type": "string"
-                                          },
-                                          "section": {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "section",
-                                                "type": "string"
-                                              },
-                                              "sectionId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "sectionId"
-                                            ]
-                                          },
-                                          "headerFooterKind": {
-                                            "enum": [
-                                              "header",
-                                              "footer"
-                                            ]
-                                          },
-                                          "variant": {
-                                            "enum": [
-                                              "default",
-                                              "first",
-                                              "even"
-                                            ]
-                                          },
-                                          "resolution": {
-                                            "enum": [
-                                              "effective",
-                                              "explicit"
-                                            ]
-                                          },
-                                          "onWrite": {
-                                            "enum": [
-                                              "materializeIfInherited",
-                                              "editResolvedPart",
-                                              "error"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "section",
-                                          "headerFooterKind",
-                                          "variant"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterPart",
-                                            "type": "string"
-                                          },
-                                          "refId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "refId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "footnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "endnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "textbox",
-                                            "type": "string"
-                                          },
-                                          "textboxId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "textboxId"
-                                        ]
-                                      }
-                                    ],
-                                    "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "blockId",
-                                  "offset"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "nodeEdge",
-                                    "type": "string"
-                                  },
-                                  "node": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "block",
-                                        "type": "string"
-                                      },
-                                      "nodeType": {
-                                        "enum": [
-                                          "paragraph",
-                                          "heading",
-                                          "table",
-                                          "tableOfContents",
-                                          "sdt",
-                                          "image"
-                                        ]
-                                      },
-                                      "nodeId": {
-                                        "type": "string"
-                                      },
-                                      "story": {
-                                        "oneOf": [
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "body",
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterSlot",
-                                                "type": "string"
-                                              },
-                                              "section": {
-                                                "type": "object",
-                                                "properties": {
-                                                  "kind": {
-                                                    "const": "section",
-                                                    "type": "string"
-                                                  },
-                                                  "sectionId": {
-                                                    "type": "string"
-                                                  }
-                                                },
-                                                "required": [
-                                                  "kind",
-                                                  "sectionId"
-                                                ]
-                                              },
-                                              "headerFooterKind": {
-                                                "enum": [
-                                                  "header",
-                                                  "footer"
-                                                ]
-                                              },
-                                              "variant": {
-                                                "enum": [
-                                                  "default",
-                                                  "first",
-                                                  "even"
-                                                ]
-                                              },
-                                              "resolution": {
-                                                "enum": [
-                                                  "effective",
-                                                  "explicit"
-                                                ]
-                                              },
-                                              "onWrite": {
-                                                "enum": [
-                                                  "materializeIfInherited",
-                                                  "editResolvedPart",
-                                                  "error"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "section",
-                                              "headerFooterKind",
-                                              "variant"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterPart",
-                                                "type": "string"
-                                              },
-                                              "refId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "refId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "footnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "endnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "textbox",
-                                                "type": "string"
-                                              },
-                                              "textboxId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "textboxId"
-                                            ]
-                                          }
-                                        ],
-                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "nodeType",
-                                      "nodeId"
-                                    ]
-                                  },
-                                  "edge": {
-                                    "enum": [
-                                      "before",
-                                      "after"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "node",
-                                  "edge"
-                                ]
-                              }
-                            ],
-                            "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
-                          },
-                          "story": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "body",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "headerFooterSlot",
-                                    "type": "string"
-                                  },
-                                  "section": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "section",
-                                        "type": "string"
-                                      },
-                                      "sectionId": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "sectionId"
-                                    ]
-                                  },
-                                  "headerFooterKind": {
-                                    "enum": [
-                                      "header",
-                                      "footer"
-                                    ]
-                                  },
-                                  "variant": {
-                                    "enum": [
-                                      "default",
-                                      "first",
-                                      "even"
-                                    ]
-                                  },
-                                  "resolution": {
-                                    "enum": [
-                                      "effective",
-                                      "explicit"
-                                    ]
-                                  },
-                                  "onWrite": {
-                                    "enum": [
-                                      "materializeIfInherited",
-                                      "editResolvedPart",
-                                      "error"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "section",
-                                  "headerFooterKind",
-                                  "variant"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "headerFooterPart",
-                                    "type": "string"
-                                  },
-                                  "refId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "refId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "footnote",
-                                    "type": "string"
-                                  },
-                                  "noteId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "noteId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "endnote",
-                                    "type": "string"
-                                  },
-                                  "noteId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "noteId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "textbox",
-                                    "type": "string"
-                                  },
-                                  "textboxId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "textboxId"
-                                ]
-                              }
-                            ],
-                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "start",
-                          "end"
-                        ]
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "const": "block",
-                            "type": "string"
-                          },
-                          "nodeType": {
-                            "enum": [
-                              "paragraph",
-                              "heading",
-                              "listItem",
-                              "table",
-                              "tableRow",
-                              "tableCell",
-                              "tableOfContents",
-                              "image",
-                              "sdt"
-                            ]
-                          },
-                          "nodeId": {
-                            "type": "string"
-                          },
-                          "story": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "body",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "headerFooterSlot",
-                                    "type": "string"
-                                  },
-                                  "section": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "section",
-                                        "type": "string"
-                                      },
-                                      "sectionId": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "sectionId"
-                                    ]
-                                  },
-                                  "headerFooterKind": {
-                                    "enum": [
-                                      "header",
-                                      "footer"
-                                    ]
-                                  },
-                                  "variant": {
-                                    "enum": [
-                                      "default",
-                                      "first",
-                                      "even"
-                                    ]
-                                  },
-                                  "resolution": {
-                                    "enum": [
-                                      "effective",
-                                      "explicit"
-                                    ]
-                                  },
-                                  "onWrite": {
-                                    "enum": [
-                                      "materializeIfInherited",
-                                      "editResolvedPart",
-                                      "error"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "section",
-                                  "headerFooterKind",
-                                  "variant"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "headerFooterPart",
-                                    "type": "string"
-                                  },
-                                  "refId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "refId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "footnote",
-                                    "type": "string"
-                                  },
-                                  "noteId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "noteId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "endnote",
-                                    "type": "string"
-                                  },
-                                  "noteId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "noteId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "textbox",
-                                    "type": "string"
-                                  },
-                                  "textboxId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "textboxId"
-                                ]
-                              }
-                            ],
-                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "nodeType",
-                          "nodeId"
-                        ]
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "const": "selection",
-                            "type": "string"
-                          },
-                          "start": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "text",
-                                    "type": "string"
-                                  },
-                                  "blockId": {
-                                    "type": "string"
-                                  },
-                                  "offset": {
-                                    "type": "number"
-                                  },
-                                  "story": {
-                                    "oneOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "body",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterSlot",
-                                            "type": "string"
-                                          },
-                                          "section": {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "section",
-                                                "type": "string"
-                                              },
-                                              "sectionId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "sectionId"
-                                            ]
-                                          },
-                                          "headerFooterKind": {
-                                            "enum": [
-                                              "header",
-                                              "footer"
-                                            ]
-                                          },
-                                          "variant": {
-                                            "enum": [
-                                              "default",
-                                              "first",
-                                              "even"
-                                            ]
-                                          },
-                                          "resolution": {
-                                            "enum": [
-                                              "effective",
-                                              "explicit"
-                                            ]
-                                          },
-                                          "onWrite": {
-                                            "enum": [
-                                              "materializeIfInherited",
-                                              "editResolvedPart",
-                                              "error"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "section",
-                                          "headerFooterKind",
-                                          "variant"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterPart",
-                                            "type": "string"
-                                          },
-                                          "refId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "refId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "footnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "endnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "textbox",
-                                            "type": "string"
-                                          },
-                                          "textboxId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "textboxId"
-                                        ]
-                                      }
-                                    ],
-                                    "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "blockId",
-                                  "offset"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "nodeEdge",
-                                    "type": "string"
-                                  },
-                                  "node": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "block",
-                                        "type": "string"
-                                      },
-                                      "nodeType": {
-                                        "enum": [
-                                          "paragraph",
-                                          "heading",
-                                          "table",
-                                          "tableOfContents",
-                                          "sdt",
-                                          "image"
-                                        ]
-                                      },
-                                      "nodeId": {
-                                        "type": "string"
-                                      },
-                                      "story": {
-                                        "oneOf": [
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "body",
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterSlot",
-                                                "type": "string"
-                                              },
-                                              "section": {
-                                                "type": "object",
-                                                "properties": {
-                                                  "kind": {
-                                                    "const": "section",
-                                                    "type": "string"
-                                                  },
-                                                  "sectionId": {
-                                                    "type": "string"
-                                                  }
-                                                },
-                                                "required": [
-                                                  "kind",
-                                                  "sectionId"
-                                                ]
-                                              },
-                                              "headerFooterKind": {
-                                                "enum": [
-                                                  "header",
-                                                  "footer"
-                                                ]
-                                              },
-                                              "variant": {
-                                                "enum": [
-                                                  "default",
-                                                  "first",
-                                                  "even"
-                                                ]
-                                              },
-                                              "resolution": {
-                                                "enum": [
-                                                  "effective",
-                                                  "explicit"
-                                                ]
-                                              },
-                                              "onWrite": {
-                                                "enum": [
-                                                  "materializeIfInherited",
-                                                  "editResolvedPart",
-                                                  "error"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "section",
-                                              "headerFooterKind",
-                                              "variant"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterPart",
-                                                "type": "string"
-                                              },
-                                              "refId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "refId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "footnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "endnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "textbox",
-                                                "type": "string"
-                                              },
-                                              "textboxId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "textboxId"
-                                            ]
-                                          }
-                                        ],
-                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "nodeType",
-                                      "nodeId"
-                                    ]
-                                  },
-                                  "edge": {
-                                    "enum": [
-                                      "before",
-                                      "after"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "node",
-                                  "edge"
-                                ]
-                              }
-                            ],
-                            "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
-                          },
-                          "end": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "text",
-                                    "type": "string"
-                                  },
-                                  "blockId": {
-                                    "type": "string"
-                                  },
-                                  "offset": {
-                                    "type": "number"
-                                  },
-                                  "story": {
-                                    "oneOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "body",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterSlot",
-                                            "type": "string"
-                                          },
-                                          "section": {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "section",
-                                                "type": "string"
-                                              },
-                                              "sectionId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "sectionId"
-                                            ]
-                                          },
-                                          "headerFooterKind": {
-                                            "enum": [
-                                              "header",
-                                              "footer"
-                                            ]
-                                          },
-                                          "variant": {
-                                            "enum": [
-                                              "default",
-                                              "first",
-                                              "even"
-                                            ]
-                                          },
-                                          "resolution": {
-                                            "enum": [
-                                              "effective",
-                                              "explicit"
-                                            ]
-                                          },
-                                          "onWrite": {
-                                            "enum": [
-                                              "materializeIfInherited",
-                                              "editResolvedPart",
-                                              "error"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "section",
-                                          "headerFooterKind",
-                                          "variant"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "headerFooterPart",
-                                            "type": "string"
-                                          },
-                                          "refId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "refId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "footnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "endnote",
-                                            "type": "string"
-                                          },
-                                          "noteId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "noteId"
-                                        ]
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "const": "story",
-                                            "type": "string"
-                                          },
-                                          "storyType": {
-                                            "const": "textbox",
-                                            "type": "string"
-                                          },
-                                          "textboxId": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "storyType",
-                                          "textboxId"
-                                        ]
-                                      }
-                                    ],
-                                    "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "blockId",
-                                  "offset"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "nodeEdge",
-                                    "type": "string"
-                                  },
-                                  "node": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "block",
-                                        "type": "string"
-                                      },
-                                      "nodeType": {
-                                        "enum": [
-                                          "paragraph",
-                                          "heading",
-                                          "table",
-                                          "tableOfContents",
-                                          "sdt",
-                                          "image"
-                                        ]
-                                      },
-                                      "nodeId": {
-                                        "type": "string"
-                                      },
-                                      "story": {
-                                        "oneOf": [
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "body",
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterSlot",
-                                                "type": "string"
-                                              },
-                                              "section": {
-                                                "type": "object",
-                                                "properties": {
-                                                  "kind": {
-                                                    "const": "section",
-                                                    "type": "string"
-                                                  },
-                                                  "sectionId": {
-                                                    "type": "string"
-                                                  }
-                                                },
-                                                "required": [
-                                                  "kind",
-                                                  "sectionId"
-                                                ]
-                                              },
-                                              "headerFooterKind": {
-                                                "enum": [
-                                                  "header",
-                                                  "footer"
-                                                ]
-                                              },
-                                              "variant": {
-                                                "enum": [
-                                                  "default",
-                                                  "first",
-                                                  "even"
-                                                ]
-                                              },
-                                              "resolution": {
-                                                "enum": [
-                                                  "effective",
-                                                  "explicit"
-                                                ]
-                                              },
-                                              "onWrite": {
-                                                "enum": [
-                                                  "materializeIfInherited",
-                                                  "editResolvedPart",
-                                                  "error"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "section",
-                                              "headerFooterKind",
-                                              "variant"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "headerFooterPart",
-                                                "type": "string"
-                                              },
-                                              "refId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "refId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "footnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "endnote",
-                                                "type": "string"
-                                              },
-                                              "noteId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "noteId"
-                                            ]
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "const": "story",
-                                                "type": "string"
-                                              },
-                                              "storyType": {
-                                                "const": "textbox",
-                                                "type": "string"
-                                              },
-                                              "textboxId": {
-                                                "type": "string"
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "storyType",
-                                              "textboxId"
-                                            ]
-                                          }
-                                        ],
-                                        "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "nodeType",
-                                      "nodeId"
-                                    ]
-                                  },
-                                  "edge": {
-                                    "enum": [
-                                      "before",
-                                      "after"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "node",
-                                  "edge"
-                                ]
-                              }
-                            ],
-                            "description": "A point in the document. Use {kind:'text', blockId, offset} for character positions or {kind:'nodeEdge', node:{kind:'block', nodeType, nodeId}, edge:'before'|'after'} for block boundaries."
-                          },
-                          "story": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "body",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "headerFooterSlot",
-                                    "type": "string"
-                                  },
-                                  "section": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "section",
-                                        "type": "string"
-                                      },
-                                      "sectionId": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "sectionId"
-                                    ]
-                                  },
-                                  "headerFooterKind": {
-                                    "enum": [
-                                      "header",
-                                      "footer"
-                                    ]
-                                  },
-                                  "variant": {
-                                    "enum": [
-                                      "default",
-                                      "first",
-                                      "even"
-                                    ]
-                                  },
-                                  "resolution": {
-                                    "enum": [
-                                      "effective",
-                                      "explicit"
-                                    ]
-                                  },
-                                  "onWrite": {
-                                    "enum": [
-                                      "materializeIfInherited",
-                                      "editResolvedPart",
-                                      "error"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "section",
-                                  "headerFooterKind",
-                                  "variant"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "headerFooterPart",
-                                    "type": "string"
-                                  },
-                                  "refId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "refId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "footnote",
-                                    "type": "string"
-                                  },
-                                  "noteId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "noteId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "endnote",
-                                    "type": "string"
-                                  },
-                                  "noteId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "noteId"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "const": "story",
-                                    "type": "string"
-                                  },
-                                  "storyType": {
-                                    "const": "textbox",
-                                    "type": "string"
-                                  },
-                                  "textboxId": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "storyType",
-                                  "textboxId"
-                                ]
-                              }
-                            ],
-                            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "start",
-                          "end"
-                        ]
-                      }
-                    ]
+                    "$ref": "#/$defs/SelectionTarget",
+                    "description": "Selection target: {kind:'selection', start:{kind:'text', blockId, offset}, end:{kind:'text', blockId, offset}}. Use 'ref' instead when you have a search result handle."
                   }
                 ],
                 "description": "Block address for structural insertion: {kind:'block', nodeType:'...', nodeId:'...'}."
               },
               {
-                "$ref": "#/$defs/SelectionTarget",
-                "description": "Selection target: {kind:'selection', start:{kind:'text', blockId, offset}, end:{kind:'text', blockId, offset}}. Use 'ref' instead when you have a search result handle."
+                "$ref": "#/$defs/DeletableBlockNodeAddress"
               }
             ],
-            "description": "Block address for structural insertion: {kind:'block', nodeType:'...', nodeId:'...'}."
+            "description": "Block address for structural insertion: {kind:'block', nodeType:'...', nodeId:'...'}. Required for action 'delete_block'."
           },
           "in": {
             "oneOf": [
@@ -2529,7 +2539,7 @@ export const MCP_TOOL_CATALOG = {
                 "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
               }
             ],
-            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes."
+            "description": "Story scope. Defaults to document body when omitted. Use {kind:'story', storyType:'body'} for body, or other storyType values for headers, footers, footnotes, endnotes. Only for actions 'insert', 'replace', 'delete'. Omit for other actions."
           },
           "value": {
             "type": "string",
@@ -2564,7 +2574,7 @@ export const MCP_TOOL_CATALOG = {
                 "description": "Handle ref string from a superdoc_search result. Pass the handle.ref value directly (e.g. 'text:eyJ...'). Preferred over 'target' for inline formatting."
               }
             ],
-            "description": "Handle ref from superdoc_search result (pass handle.ref value directly). Preferred over building a target object."
+            "description": "Handle ref from superdoc_search result (pass handle.ref value directly). Preferred over building a target object. Only for actions 'insert', 'replace', 'delete'. Omit for other actions."
           },
           "content": {
             "oneOf": [
@@ -2647,6 +2657,22 @@ export const MCP_TOOL_CATALOG = {
           "behavior": {
             "$ref": "#/$defs/DeleteBehavior",
             "description": "Delete behavior: 'selection' (default) or 'exact'. Only for action 'delete'. Omit for other actions."
+          },
+          "nodeType": {
+            "type": "string",
+            "description": "Block type of the node to delete. Only for action 'delete_block'. Omit for other actions."
+          },
+          "nodeId": {
+            "type": "string",
+            "description": "Node ID of the block to delete. Only for action 'delete_block'. Omit for other actions."
+          },
+          "start": {
+            "$ref": "#/$defs/BlockNodeAddress",
+            "description": "Required for action 'delete_block_range'."
+          },
+          "end": {
+            "$ref": "#/$defs/BlockNodeAddress",
+            "description": "Required for action 'delete_block_range'."
           }
         },
         "required": [
@@ -2708,6 +2734,21 @@ export const MCP_TOOL_CATALOG = {
             [
               "ref"
             ]
+          ]
+        },
+        {
+          "operationId": "doc.blocks.delete",
+          "intentAction": "delete_block",
+          "required": [
+            "target"
+          ]
+        },
+        {
+          "operationId": "doc.blocks.deleteRange",
+          "intentAction": "delete_block_range",
+          "required": [
+            "start",
+            "end"
           ]
         },
         {
