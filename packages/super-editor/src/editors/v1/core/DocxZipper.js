@@ -6,6 +6,7 @@ import { DOCX } from '@superdoc/common';
 import { COMMENT_FILE_BASENAMES } from './super-converter/constants.js';
 import { syncPackageMetadata } from './opc/sync-package-metadata.js';
 import { reconcileDocumentRelationships, MANAGED_DOCUMENT_PARTS } from './opc/reconcile-document-relationships.js';
+import { validateEmbeddedFonts } from './opc/validate-embedded-fonts.js';
 
 /** Image file extensions recognized during import and export. */
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'tif', 'emf', 'wmf', 'svg', 'webp']);
@@ -498,6 +499,10 @@ class DocxZipper {
     } else {
       zip = await this.exportFromCollaborativeDocx(docx, updatedDocs, media, fonts);
     }
+
+    // Validate the assembled package, including parts retained from a carrier
+    // file. A successful export must never leave dangling font embeddings.
+    await validateEmbeddedFonts(zip);
 
     // If we are headless we don't have 'blob' support, so export as 'nodebuffer'
     const exportType = isHeadless ? 'nodebuffer' : 'blob';

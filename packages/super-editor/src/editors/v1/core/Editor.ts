@@ -4431,7 +4431,10 @@ export class Editor extends EventEmitter<EditorEventMap> {
       // so the copied parts are registered in the package.
       const templateSubstratePaths = Object.keys(this.converter.convertedXml).filter(
         (path) =>
-          /^word\/theme\/[^/]+\.xml$/.test(path) || path === 'word/fontTable.xml' || path === 'word/webSettings.xml',
+          /^word\/theme\/[^/]+\.xml$/.test(path) ||
+          path === 'word/fontTable.xml' ||
+          path === 'word/_rels/fontTable.xml.rels' ||
+          path === 'word/webSettings.xml',
       );
       for (const path of templateSubstratePaths) {
         if (Object.prototype.hasOwnProperty.call(updatedDocs, path)) continue;
@@ -4467,6 +4470,12 @@ export class Editor extends EventEmitter<EditorEventMap> {
       }
 
       const zipper = new DocxZipper();
+      // A room-only join has no imported font files in options. Read the room's
+      // current bytes at export time so replacements do not leave a stale cache.
+      const roomMeta = (this.options.ydoc as YDoc | null)?.getMap('meta');
+      const fonts = roomMeta?.has('fonts')
+        ? ((roomMeta.get('fonts') ?? {}) as Record<string, unknown>)
+        : this.options.fonts;
 
       if (getUpdatedDocs) {
         updatedDocs['[Content_Types].xml'] = await zipper.updateContentTypes(
@@ -4476,7 +4485,7 @@ export class Editor extends EventEmitter<EditorEventMap> {
           media,
           true,
           updatedDocs,
-          this.options.fonts,
+          fonts,
         );
 
         // Reconcile package-level singleton metadata (content-type overrides
@@ -4505,7 +4514,7 @@ export class Editor extends EventEmitter<EditorEventMap> {
         updatedDocs: updatedDocs,
         originalDocxFile: this.options.fileSource,
         media,
-        fonts: this.options.fonts,
+        fonts,
         isHeadless: this.options.isHeadless,
         compression,
       });
