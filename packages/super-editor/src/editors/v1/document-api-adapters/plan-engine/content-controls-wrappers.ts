@@ -12,7 +12,7 @@
  * helpers/content-controls/*.ts per the DRY architecture plan.
  */
 
-import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
+import { Fragment, type Mark as ProseMirrorMark, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import { STRUCTURED_CONTENT_WRAPPER_PRESERVING_META } from '../../extensions/structured-content/structured-content-lock-plugin.js';
 import type { Editor } from '../../core/Editor.js';
@@ -374,17 +374,51 @@ function alreadyMatchesPlainTextReplacement(
  * Callers that need to enforce content-lock semantics (`contentLocked` and
  * `sdtContentLocked`) must call `assertNotContentLocked` before reaching
  * here; this helper trusts that guard and emits a content-range step.
+ *
+ * `options.fontFamily` applies a `textStyle` mark to the inserted text so
+ * symbol runs (e.g. a checkbox glyph in MS Gothic) keep their font instead of
+ * falling back to the body font. Ignored when the schema lacks `textStyle`.
+ * A wrapping `run` node carries the exportable `runProperties.fontFamily`
+ * slots (the run's `w:rFonts`), which the run-properties reconciliation
+ * plugin treats as the formatting source of truth — a bare marked text node
+ * gets its runProperties re-derived from the cascade and loses the font.
  */
-function replaceSdtTextContent(editor: Editor, target: ContentControlTarget, text: string): boolean {
+function buildFontMarks(editor: Editor, fontFamily: string | undefined): readonly ProseMirrorMark[] | undefined {
+  if (!fontFamily) return undefined;
+  const textStyleMark = editor.schema.marks?.textStyle;
+  if (!textStyleMark) return undefined;
+  return [textStyleMark.create({ fontFamily })];
+}
+
+function buildFontRun(editor: Editor, text: string, fontFamily: string): ProseMirrorNode | null {
+  const runType = editor.schema.nodes.run;
+  if (!runType) return null;
+  const textNode = editor.schema.text(text, buildFontMarks(editor, fontFamily));
+  return runType.create(
+    {
+      runProperties: { fontFamily: { ascii: fontFamily, eastAsia: fontFamily, hAnsi: fontFamily, cs: fontFamily } },
+      runPropertiesInlineKeys: ['fontFamily'],
+    },
+    textNode,
+  );
+}
+
+function replaceSdtTextContent(
+  editor: Editor,
+  target: ContentControlTarget,
+  text: string,
+  options: { fontFamily?: string } = {},
+): boolean {
   const resolved = resolveSdtByTarget(editor.state.doc, target);
   const { tr } = editor.state;
   const innerFrom = resolved.pos + 1;
   const innerTo = resolved.pos + resolved.node.nodeSize - 1;
+  const marks = buildFontMarks(editor, options.fontFamily);
+  const fontRun = options.fontFamily && text.length > 0 ? buildFontRun(editor, text, options.fontFamily) : null;
 
   if (resolved.kind === 'inline') {
     if (text.length > 0) {
-      const textNode = editor.schema.text(text);
-      tr.replaceWith(innerFrom, innerTo, textNode);
+      tr.replaceWith(innerFrom, innerTo, fontRun ?? editor.schema.text(text, marks));
     } else {
       tr.delete(innerFrom, innerTo);
     }
@@ -394,7 +428,7 @@ function replaceSdtTextContent(editor: Editor, target: ContentControlTarget, tex
 
   const paragraph = buildEmptyBlockContent(editor, resolved.node);
   if (!paragraph) return false;
-  const paragraphText = text.length > 0 ? buildTextWithTabs(editor.schema, text, undefined) : null;
+  const paragraphText = text.length > 0 ? (fontRun ?? buildTextWithTabs(editor.schema, text, marks)) : null;
   const updatedParagraph = paragraph.type.create(paragraph.attrs ?? null, paragraphText, paragraph.marks);
   tr.replaceWith(innerFrom, innerTo, updatedParagraph);
   dispatchTransaction(editor, tr);
@@ -1342,6 +1376,108 @@ function updateDateSubElement(
   });
 }
 
+// w:fullDate is ST_DateTime (xsd:dateTime); Word rejects a bare calendar date.
+// Accept 'YYYY-MM-DD' (promoted to midnight UTC) or a full ISO-8601 dateTime,
+// and reject anything that is not a real calendar date.
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))?$/;
+
+function isValidTimeParts(match: RegExpExecArray): boolean {
+  const hours = Number(match[4]);
+  const minutes = Number(match[5]);
+  const seconds = Number(match[6]);
+  if (hours > 23 || minutes > 59 || seconds > 59) return false;
+  // xsd:dateTime caps timezone offsets at +/-14:00.
+  if (match[8] !== undefined) {
+    const offsetHours = Number(match[9]);
+    const offsetMinutes = Number(match[10]);
+    if (offsetHours > 14 || offsetMinutes > 59 || (offsetHours === 14 && offsetMinutes > 0)) return false;
+  }
+  return true;
+}
+
+function normalizeDateInput(value: string): { fullDate: string; date: Date } {
+  const dateTimeMatch = DATE_ONLY_RE.test(value) ? null : DATE_TIME_RE.exec(value);
+  const match = DATE_ONLY_RE.exec(value) ?? dateTimeMatch;
+  if (!match || (dateTimeMatch && !isValidTimeParts(dateTimeMatch))) {
+    throw new DocumentApiAdapterError('INVALID_INPUT', `Date value "${value}" is not an ISO-8601 date or dateTime.`, {
+      value,
+    });
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    throw new DocumentApiAdapterError('INVALID_INPUT', `Date value "${value}" is not a valid calendar date.`, {
+      value,
+    });
+  }
+  return { fullDate: DATE_ONLY_RE.test(value) ? `${value}T00:00:00Z` : value, date };
+}
+
+// Word display masks, longest token first so 'yyyy' wins over 'yy', etc.
+// Any character that is not a token is copied through as a literal.
+const DATE_MASK_TOKENS = ['yyyy', 'yy', 'MMMM', 'MMM', 'MM', 'M', 'dddd', 'ddd', 'dd', 'd'] as const;
+
+function intlDatePart(date: Date, locale: string, opts: Intl.DateTimeFormatOptions): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'UTC' }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' }).format(date);
+  }
+}
+
+function formatDateToken(token: string, date: Date, locale: string): string {
+  switch (token) {
+    case 'yyyy':
+      return String(date.getUTCFullYear());
+    case 'yy':
+      return pad2(date.getUTCFullYear() % 100);
+    case 'MMMM':
+      return intlDatePart(date, locale, { month: 'long' });
+    case 'MMM':
+      return intlDatePart(date, locale, { month: 'short' });
+    case 'MM':
+      return pad2(date.getUTCMonth() + 1);
+    case 'M':
+      return String(date.getUTCMonth() + 1);
+    case 'dddd':
+      return intlDatePart(date, locale, { weekday: 'long' });
+    case 'ddd':
+      return intlDatePart(date, locale, { weekday: 'short' });
+    case 'dd':
+      return pad2(date.getUTCDate());
+    case 'd':
+      return String(date.getUTCDate());
+    default:
+      return token;
+  }
+}
+
+// Render `date` (from its UTC parts) through a Word display mask.
+function formatWordDate(date: Date, mask: string, locale: string): string {
+  let out = '';
+  let i = 0;
+  while (i < mask.length) {
+    const token = DATE_MASK_TOKENS.find((candidate) => mask.startsWith(candidate, i));
+    if (token) {
+      out += formatDateToken(token, date, locale);
+      i += token.length;
+    } else {
+      out += mask[i];
+      i += 1;
+    }
+  }
+  return out;
+}
+
+function readDateChildVal(sdtPr: SdtPrElement | undefined, subName: string, fallback: string): string {
+  const dateEl = findSdtPrChild(sdtPr, 'w:date');
+  const val = dateEl?.elements?.find((el) => el.name === subName)?.attributes?.['w:val'];
+  return typeof val === 'string' && val.length > 0 ? val : fallback;
+}
+
 function dateSetValueWrapper(
   editor: Editor,
   input: ContentControlsDateSetValueInput,
@@ -1350,16 +1486,47 @@ function dateSetValueWrapper(
   const sdt = resolveSdtByTarget(editor.state.doc, input.target);
   assertControlType(sdt, 'date', 'date.setValue');
   assertNotSdtLocked(sdt, 'date.setValue');
+  assertNotContentLocked(sdt, 'date.setValue');
   const target = buildTarget(sdt);
 
-  // w:fullDate is an attribute on w:date itself, not a sub-element
+  const { fullDate, date } = normalizeDateInput(input.value);
+  const currentSdtPr = sdt.node.attrs.sdtPr as SdtPrElement | undefined;
+  // Visible text is the value rendered through w:dateFormat (default M/d/yyyy),
+  // not the raw input (ECMA-376 §17.5.2.7).
+  const mask = readDateChildVal(currentSdtPr, 'w:dateFormat', 'M/d/yyyy');
+  const locale = readDateChildVal(currentSdtPr, 'w:lid', 'en-US');
+  const displayText = formatWordDate(date, mask, locale);
+
+  // NO_OP when the stored value and the rendered text already match. The visible
+  // content is normalized into a run carrying inline font metadata, so it is not
+  // the canonical bare shape `alreadyMatchesPlainTextReplacement` recognizes;
+  // compare the flattened text instead.
+  // A lingering w:showingPlcHdr still marks the value as placeholder text
+  // (§17.5.2.39), so the mutation must run even when value and text match.
+  const currentFullDate = String(findSdtPrChild(currentSdtPr, 'w:date')?.attributes?.['w:fullDate'] ?? '');
+  const showsPlaceholder = Boolean(findSdtPrChild(currentSdtPr, 'w:showingPlcHdr'));
+  if (currentFullDate === fullDate && sdt.node.textContent === displayText && !showsPlaceholder) {
+    return buildMutationFailure('NO_OP', 'Date control already holds the requested value.');
+  }
+
   return executeSdtMutation(editor, target, options, () => {
-    return updateSdtPrChild(editor, input.target, 'w:date', (existing) => ({
+    // Single sdtPr rewrite: drop the placeholder flag (§17.5.2.39) and store the
+    // normalized w:fullDate, so a reopening Word does not re-hide the value.
+    const resolved = resolveSdtByTarget(editor.state.doc, input.target);
+    let nextSdtPr = (resolved.node.attrs.sdtPr ?? { name: 'w:sdtPr', elements: [] }) as SdtPrElement;
+    nextSdtPr = removeSdtPrChild(nextSdtPr, 'w:showingPlcHdr');
+    const existingDate = findSdtPrChild(nextSdtPr, 'w:date');
+    nextSdtPr = upsertSdtPrChild(nextSdtPr, 'w:date', {
       name: 'w:date',
       type: 'element',
-      ...existing,
-      attributes: { ...(existing?.attributes ?? {}), 'w:fullDate': input.value },
-    }));
+      ...existingDate,
+      attributes: { ...(existingDate?.attributes ?? {}), 'w:fullDate': fullDate },
+    });
+    const metadataUpdated = applyAttrsUpdate(editor, input.target.nodeId, { sdtPr: nextSdtPr });
+    // Updating w:fullDate alone leaves the SDT showing its placeholder; also
+    // rewrite the visible content so the rendered date changes.
+    const contentUpdated = replaceSdtTextContent(editor, input.target, displayText);
+    return metadataUpdated || contentUpdated;
   });
 }
 
@@ -1444,6 +1611,7 @@ function checkboxSetStateWrapper(
   const sdt = resolveSdtByTarget(editor.state.doc, input.target);
   assertControlType(sdt, 'checkbox', 'checkbox.setState');
   assertNotSdtLocked(sdt, 'checkbox.setState');
+  assertNotContentLocked(sdt, 'checkbox.setState');
   const target = buildTarget(sdt);
   const symbol = resolveCheckboxVisualSymbol(sdt.node.attrs.sdtPr as SdtPrElement | undefined, input.checked);
 
@@ -1466,6 +1634,14 @@ function checkboxSetStateWrapper(
           Boolean(updateCmd(input.target.nodeId, { text: symbol.char, keepTextNodeStyles: true }));
         return visualUpdated || checkboxUpdated;
       }
+    } else if (sdt.kind === 'block') {
+      // Block-scope checkboxes can't reuse the inline branch above: it feeds
+      // updateStructuredContentById a bare text node, which a block SDT's schema
+      // rejects (block content must be wrapped in a paragraph).
+      // Instead use replaceSdtTextContent to swap the glyph, carrying the symbol
+      // font so the checked box keeps rendering in MS Gothic (or its override).
+      const visualUpdated = replaceSdtTextContent(editor, input.target, symbol.char, { fontFamily: symbol.font });
+      return visualUpdated || checkboxUpdated;
     }
 
     return checkboxUpdated;

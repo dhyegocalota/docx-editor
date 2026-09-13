@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Editor } from '../../core/Editor.js';
 import { registerBuiltInExecutors } from './register-executors.js';
 import { createContentControlsAdapter } from './content-controls-wrappers.js';
+import { DocumentApiAdapterError } from '../errors.js';
 import {
   buildContentControlInfoFromNode,
   buildContentControlInfoFromAttrs,
@@ -1198,6 +1199,125 @@ describe('choiceList.setSelected visual text sync', () => {
   });
 });
 
+describe('date.setValue visual text sync', () => {
+  // Build a block date control whose visible content is the Word placeholder
+  // ("Click or tap to enter a date."), mirroring the date_control.docx fixture.
+  function makeDateControlEditor() {
+    return makeSdtEditor(
+      {
+        controlType: 'date',
+        type: 'date',
+        sdtPr: {
+          name: 'w:sdtPr',
+          elements: [
+            {
+              name: 'w:date',
+              type: 'element',
+              attributes: {},
+              elements: [{ name: 'w:dateFormat', type: 'element', attributes: { 'w:val': 'dd/MM/yyyy' } }],
+            },
+          ],
+        },
+      },
+      [createParagraphNode('Click or tap to enter a date.')],
+    );
+  }
+
+  // setValue must rewrite the SDT's visible content range, not only w:fullDate
+  // (the stored value); otherwise the control keeps showing its placeholder.
+  // Surfaced here as a tr.replaceWith.
+  it('rewrites the visible content range so the rendered date updates, not just w:fullDate', () => {
+    const editor = makeDateControlEditor();
+    const adapter = createContentControlsAdapter(editor);
+
+    const result = adapter.date.setValue({ target: SDT_TARGET, value: '2026-05-24' }, { changeMode: 'direct' });
+
+    expect(result.success).toBe(true);
+    expect((editor.state.tr as any).replaceWith).toHaveBeenCalledTimes(1);
+  });
+
+  it('still writes w:fullDate to the w:date sdtPr child (stored value)', () => {
+    const editor = makeDateControlEditor();
+    const adapter = createContentControlsAdapter(editor);
+
+    adapter.date.setValue({ target: SDT_TARGET, value: '2026-05-24' }, { changeMode: 'direct' });
+
+    // Metadata writes flow through tr.setNodeAttribute (AttrStep) as a full sdtPr replace.
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    const sdtPrCall = setAttr.mock.calls.find((call: any[]) => call[1] === 'sdtPr');
+    expect(sdtPrCall).toBeDefined();
+    const writtenSdtPr = sdtPrCall?.[2] as { elements?: Array<{ name: string; attributes?: Record<string, unknown> }> };
+    const dateEl = writtenSdtPr?.elements?.find((el) => el.name === 'w:date');
+    // w:fullDate is xsd:dateTime; the bare calendar date is normalized to midnight UTC.
+    expect(dateEl?.attributes?.['w:fullDate']).toBe('2026-05-24T00:00:00Z');
+  });
+});
+
+describe('checkbox.setState visual glyph sync (block scope)', () => {
+  // Build a block-scope checkbox control (sdtContent wraps a paragraph carrying
+  // the glyph), as produced by stacked Yes/No checkboxes inside a table cell.
+  function makeBlockCheckboxEditor() {
+    return makeSdtEditor(
+      {
+        controlType: 'checkbox',
+        type: 'checkbox',
+        sdtPr: {
+          name: 'w:sdtPr',
+          elements: [
+            {
+              name: 'w14:checkbox',
+              type: 'element',
+              elements: [
+                { name: 'w14:checked', type: 'element', attributes: { 'w14:val': '0' } },
+                {
+                  name: 'w14:checkedState',
+                  type: 'element',
+                  attributes: { 'w14:val': '2612', 'w14:font': 'MS Gothic' },
+                },
+                {
+                  name: 'w14:uncheckedState',
+                  type: 'element',
+                  attributes: { 'w14:val': '2610', 'w14:font': 'MS Gothic' },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      [createParagraphNode('☐')],
+    );
+  }
+
+  // setState must rewrite the SDT's visible glyph for block-scope checkboxes, not
+  // only w14:checked; otherwise the box never swaps ☐ -> ☒. The block path can't
+  // use updateStructuredContentById (it builds inline text JSON the block schema
+  // rejects), so the rewrite surfaces as a tr.replaceWith of the inner range.
+  it('rewrites the visible glyph for block-scope checkboxes, not just w14:checked', () => {
+    const editor = makeBlockCheckboxEditor();
+    const adapter = createContentControlsAdapter(editor);
+
+    const result = adapter.checkbox.setState({ target: SDT_TARGET, checked: true }, { changeMode: 'direct' });
+
+    expect(result.success).toBe(true);
+    expect((editor.state.tr as any).replaceWith).toHaveBeenCalledTimes(1);
+  });
+
+  it('still writes w14:checked to the checkbox sdtPr child', () => {
+    const editor = makeBlockCheckboxEditor();
+    const adapter = createContentControlsAdapter(editor);
+
+    adapter.checkbox.setState({ target: SDT_TARGET, checked: true }, { changeMode: 'direct' });
+
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    const sdtPrCall = setAttr.mock.calls.find((call: any[]) => call[1] === 'sdtPr');
+    expect(sdtPrCall).toBeDefined();
+    const writtenSdtPr = sdtPrCall?.[2] as { elements?: Array<{ name: string; elements?: any[] }> };
+    const checkboxEl = writtenSdtPr?.elements?.find((el) => el.name === 'w14:checkbox');
+    const checkedEl = checkboxEl?.elements?.find((el: any) => el.name === 'w14:checked');
+    expect(checkedEl?.attributes?.['w14:val']).toBe('1');
+  });
+});
+
 describe('create.contentControl default sdtPr seeding', () => {
   it('seeds checkbox controls with checked state + symbol pair defaults', () => {
     const editor = makeSdtEditor();
@@ -1335,5 +1455,230 @@ describe('contentControls.setType default sdtPr seeding', () => {
     expect(checkbox?.elements?.some((el) => el.name === 'w14:checked')).toBe(true);
     expect(checkbox?.elements?.some((el) => el.name === 'w14:checkedState')).toBe(true);
     expect(checkbox?.elements?.some((el) => el.name === 'w14:uncheckedState')).toBe(true);
+  });
+});
+
+// ===========================================================================
+// SD-3802 defect coverage: date.setValue / checkbox.setState correctness.
+//
+// These pin behavior the current PR gets wrong: verbatim w:fullDate, no
+// display-format masking, retained w:showingPlcHdr, missing NO_OP short-circuit,
+// missing content-lock enforcement, and dropped symbol font on block checkboxes.
+// ===========================================================================
+
+/**
+ * Build a block date control whose visible content is the Word placeholder,
+ * mirroring the date_control.docx fixture (showingPlcHdr + configurable mask).
+ */
+function makeDateEditor(opts: { mask?: string; lockMode?: string; fullDate?: string; text?: string } = {}) {
+  const dateElements: Array<Record<string, unknown>> = [];
+  if (opts.mask) {
+    dateElements.push({ name: 'w:dateFormat', type: 'element', attributes: { 'w:val': opts.mask } });
+  }
+  const dateAttributes: Record<string, unknown> = opts.fullDate ? { 'w:fullDate': opts.fullDate } : {};
+  const override: Record<string, unknown> = {
+    controlType: 'date',
+    type: 'date',
+    sdtPr: {
+      name: 'w:sdtPr',
+      elements: [
+        { name: 'w:showingPlcHdr', type: 'element' },
+        { name: 'w:date', type: 'element', attributes: dateAttributes, elements: dateElements },
+      ],
+    },
+  };
+  if (opts.lockMode) override.lockMode = opts.lockMode;
+  return makeSdtEditor(override, [createParagraphNode(opts.text ?? 'Click or tap to enter a date.')]);
+}
+
+describe('SD-3802: date.setValue OOXML correctness', () => {
+  // (b) w:fullDate is ST_DateTime (xsd:dateTime). Passing a bare 'YYYY-MM-DD'
+  // must be normalized to the full 'YYYY-MM-DDT00:00:00Z' shape Word expects
+  // (matching the create path's buildDateControlDefaults). The PR writes the
+  // raw input verbatim.
+  it('normalizes the stored w:fullDate to xsd:dateTime', () => {
+    const editor = makeDateEditor({ mask: 'dd/MM/yyyy' });
+    const adapter = createContentControlsAdapter(editor);
+
+    adapter.date.setValue({ target: SDT_TARGET, value: '2026-05-24' }, { changeMode: 'direct' });
+
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    const sdtPrCalls = setAttr.mock.calls.filter((c: any[]) => c[1] === 'sdtPr');
+    const dateWrites = sdtPrCalls
+      .map((c: any[]) => c[2]?.elements?.find((el: { name: string }) => el.name === 'w:date'))
+      .filter(Boolean) as Array<{ attributes?: Record<string, unknown> }>;
+    const lastDate = dateWrites[dateWrites.length - 1];
+    expect(lastDate?.attributes?.['w:fullDate']).toBe('2026-05-24T00:00:00Z');
+  });
+
+  // (c-unit) Visible text must be the date rendered through the display mask.
+  // With no explicit w:dateFormat, Word's default mask is M/d/yyyy, so
+  // '2026-05-24' renders as '5/24/2026' (no zero padding). The PR writes the
+  // raw ISO input as the visible text.
+  it('renders visible text using the default mask M/d/yyyy (5/24/2026)', () => {
+    const editor = makeDateEditor(); // no explicit dateFormat -> default mask
+    const adapter = createContentControlsAdapter(editor);
+
+    adapter.date.setValue({ target: SDT_TARGET, value: '2026-05-24' }, { changeMode: 'direct' });
+
+    const replaceWith = (editor.state.tr as any).replaceWith as ReturnType<typeof vi.fn>;
+    const paraCall = replaceWith.mock.calls.find((c: any[]) => c[2]?.type?.name === 'paragraph');
+    expect(paraCall).toBeDefined();
+    expect(paraCall?.[2]?.textContent).toBe('5/24/2026');
+  });
+
+  // (b2) ST_DateTime restricts xsd:dateTime: out-of-range time components and
+  // timezone offsets beyond +/-14:00 are invalid even when the calendar date
+  // parses, so they must be rejected instead of written to w:fullDate.
+  it('rejects dateTime input with out-of-range time or offset components', () => {
+    const editor = makeDateEditor({ mask: 'dd/MM/yyyy' });
+    const adapter = createContentControlsAdapter(editor);
+
+    for (const value of ['2026-05-24T99:99:99Z', '2026-05-24T12:00:00+15:00', '2026-05-24T12:60:00Z']) {
+      let err: unknown;
+      try {
+        adapter.date.setValue({ target: SDT_TARGET, value }, { changeMode: 'direct' });
+      } catch (e) {
+        err = e;
+      }
+      expect(err, `expected INVALID_INPUT for ${value}`).toBeInstanceOf(DocumentApiAdapterError);
+      expect((err as DocumentApiAdapterError).code).toBe('INVALID_INPUT');
+    }
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    expect(setAttr).not.toHaveBeenCalled();
+  });
+
+  // (d2) A lingering w:showingPlcHdr still marks the content as placeholder
+  // text (§17.5.2.39), so a matching value + text must NOT short-circuit to
+  // NO_OP: the mutation has to run to clear the flag.
+  it('does not return NO_OP while w:showingPlcHdr is still present', () => {
+    const editor = makeDateEditor({
+      mask: 'dd/MM/yyyy',
+      fullDate: '2026-05-24T00:00:00Z',
+      text: '24/05/2026',
+    });
+    const adapter = createContentControlsAdapter(editor);
+
+    const result = adapter.date.setValue({ target: SDT_TARGET, value: '2026-05-24' }, { changeMode: 'direct' });
+
+    expect(result.success).toBe(true);
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    const sdtPrCalls = setAttr.mock.calls.filter((c: any[]) => c[1] === 'sdtPr');
+    expect(sdtPrCalls.length).toBeGreaterThan(0);
+    const lastSdtPr = sdtPrCalls[sdtPrCalls.length - 1]?.[2] as { elements?: Array<{ name: string }> };
+    expect(lastSdtPr?.elements?.some((el) => el.name === 'w:showingPlcHdr')).toBe(false);
+  });
+
+  // (e) contentLocked protects the content: date.setValue must throw
+  // LOCK_VIOLATION before mutating and must not write sdtPr metadata. The PR
+  // only guards sdtLocked, so it silently updates metadata on contentLocked.
+  it('throws LOCK_VIOLATION on a contentLocked date control and writes no sdtPr metadata', () => {
+    const editor = makeDateEditor({ mask: 'dd/MM/yyyy', lockMode: 'contentLocked' });
+    const adapter = createContentControlsAdapter(editor);
+
+    let err: unknown;
+    try {
+      adapter.date.setValue({ target: SDT_TARGET, value: '2026-05-24' }, { changeMode: 'direct' });
+    } catch (e) {
+      err = e;
+    }
+
+    expect(err).toBeInstanceOf(DocumentApiAdapterError);
+    expect((err as DocumentApiAdapterError).code).toBe('LOCK_VIOLATION');
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    expect(setAttr).not.toHaveBeenCalled();
+  });
+});
+
+describe('SD-3802: block checkbox.setState correctness', () => {
+  /**
+   * Block checkbox control whose glyph paragraph carries an MS Gothic run, as
+   * produced by the block_checkbox_control.docx fixture. The editor's schema is
+   * upgraded to be mark-aware so we can observe whether the rewritten glyph
+   * keeps its symbol font (the base mock's schema.text drops marks).
+   */
+  function makeMarkAwareBlockCheckboxEditor(lockMode?: string) {
+    const editor = makeSdtEditor(
+      {
+        controlType: 'checkbox',
+        type: 'checkbox',
+        ...(lockMode ? { lockMode } : {}),
+        sdtPr: {
+          name: 'w:sdtPr',
+          elements: [
+            {
+              name: 'w14:checkbox',
+              type: 'element',
+              elements: [
+                { name: 'w14:checked', type: 'element', attributes: { 'w14:val': '0' } },
+                {
+                  name: 'w14:checkedState',
+                  type: 'element',
+                  attributes: { 'w14:val': '2612', 'w14:font': 'MS Gothic' },
+                },
+                {
+                  name: 'w14:uncheckedState',
+                  type: 'element',
+                  attributes: { 'w14:val': '2610', 'w14:font': 'MS Gothic' },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      [createParagraphNode('☐')],
+    );
+
+    const markAwareText = (t: string, marks?: unknown[]) => {
+      const node = createNode('text', [], { text: t });
+      (node as any).marks = marks ?? [];
+      return node;
+    };
+    const textStyle = { create: (attrs: Record<string, unknown>) => ({ type: { name: 'textStyle' }, attrs }) };
+    (editor.schema as any).text = markAwareText;
+    (editor.schema as any).marks = { textStyle };
+    (editor.state.schema as any).text = markAwareText;
+    (editor.state.schema as any).marks = { textStyle };
+    return editor;
+  }
+
+  // (f) The block path rewrites the glyph via replaceSdtTextContent, which builds
+  // a bare text node with no marks — dropping the MS Gothic symbol font so the
+  // checked box renders in the body font. The rewritten text node must carry a
+  // textStyle mark with fontFamily 'MS Gothic'.
+  it('preserves the symbol font when swapping the block glyph', () => {
+    const editor = makeMarkAwareBlockCheckboxEditor();
+    const adapter = createContentControlsAdapter(editor);
+
+    const result = adapter.checkbox.setState({ target: SDT_TARGET, checked: true }, { changeMode: 'direct' });
+    expect(result.success).toBe(true);
+
+    const replaceWith = (editor.state.tr as any).replaceWith as ReturnType<typeof vi.fn>;
+    const paraCall = replaceWith.mock.calls.find((c: any[]) => c[2]?.type?.name === 'paragraph');
+    expect(paraCall).toBeDefined();
+    const paragraph = paraCall![2] as any;
+    const textNode = paragraph.child(0);
+    const marks = (textNode?.marks ?? []) as Array<{ type?: { name?: string }; attrs?: Record<string, unknown> }>;
+    const hasFont = marks.some((m) => m.type?.name === 'textStyle' && m.attrs?.fontFamily === 'MS Gothic');
+    expect(hasFont).toBe(true);
+  });
+
+  // (g) contentLocked must block checkbox.setState with LOCK_VIOLATION before any
+  // mutation. The PR only guards sdtLocked, so contentLocked silently mutates.
+  it('throws LOCK_VIOLATION on a contentLocked block checkbox and writes no sdtPr metadata', () => {
+    const editor = makeMarkAwareBlockCheckboxEditor('contentLocked');
+    const adapter = createContentControlsAdapter(editor);
+
+    let err: unknown;
+    try {
+      adapter.checkbox.setState({ target: SDT_TARGET, checked: true }, { changeMode: 'direct' });
+    } catch (e) {
+      err = e;
+    }
+
+    expect(err).toBeInstanceOf(DocumentApiAdapterError);
+    expect((err as DocumentApiAdapterError).code).toBe('LOCK_VIOLATION');
+    const setAttr = (editor.state.tr as any).setNodeAttribute as ReturnType<typeof vi.fn>;
+    expect(setAttr).not.toHaveBeenCalled();
   });
 });
