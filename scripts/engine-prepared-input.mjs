@@ -43,6 +43,7 @@ export const BUILD_ORCHESTRATED_ENV = 'SUPERDOC_BUILD_ORCHESTRATED';
 export const ENGINE_BUILD_AUTHORITY_FILE_ENV = 'SUPERDOC_ENGINE_BUILD_AUTHORITY_FILE';
 export const ENGINE_INPUT_IDENTITY_SCHEMA = 'superdoc-engine-input-identity.v2';
 export const SOURCE_CONTENT_IDENTITY_SCHEMA = 'superdoc-source-content-identity.v1';
+export const ENGINE_BUILD_PROFILES = Object.freeze(['canonical', 'eval-fast']);
 
 export const ENGINE_INPUT_MODES = Object.freeze(['installed', 'prepared']);
 
@@ -722,7 +723,7 @@ function verifyManifestFile(surfaceRoot, surfaceLabel) {
       remediation: ENGINE_PREPARE_COMMAND,
     });
   }
-  if (!manifest.protection?.obfuscatedSetSha256) {
+  if (!manifest.protection?.obfuscatedSetSha256 && !manifest.protection?.contentSetSha256) {
     throw new EngineInputError(`${surfaceLabel} manifest.json records no protection metadata`, {
       code: 'engine-manifest-protection',
       remediation: ENGINE_PREPARE_COMMAND,
@@ -772,6 +773,7 @@ export function verifyEngineSurface(surfaceRoot, surfaceLabel) {
  * @param {string} params.expectedVersion exact version the consumer declares
  * @param {string[]} [params.surfaces] surface dirs to verify (default ['dist'])
  * @param {string|null} [params.expectedReceiptDigest] orchestrator-passed binding
+ * @param {'canonical'|'eval-fast'} [params.expectedBuildProfile] required producer profile
  */
 export function verifyPreparedEngine({
   v2Root,
@@ -779,6 +781,7 @@ export function verifyPreparedEngine({
   surfaces = ['dist'],
   expectedReceiptDigest = null,
   currentInputIdentity = null,
+  expectedBuildProfile = process.env.SUPERDOC_EVAL_FAST_BUILD === '1' ? 'eval-fast' : 'canonical',
 }) {
   const selection = readEngineProducerSelection(v2Root);
   const receipt = selection.receipt;
@@ -792,6 +795,18 @@ export function verifyPreparedEngine({
     throw new EngineInputError(
       `prepared engine version ${receipt.engineVersion} does not match the declared dependency ${expectedVersion}`,
       { code: 'engine-version-mismatch', remediation: ENGINE_PREPARE_COMMAND },
+    );
+  }
+  if (!ENGINE_BUILD_PROFILES.includes(expectedBuildProfile)) {
+    throw new EngineInputError(`unsupported expected engine build profile: ${expectedBuildProfile}`, {
+      code: 'engine-build-profile', remediation: ENGINE_PREPARE_COMMAND,
+    });
+  }
+  const receiptBuildProfile = receipt.buildProfile ?? 'canonical';
+  if (receiptBuildProfile !== expectedBuildProfile) {
+    throw new EngineInputError(
+      `prepared engine build profile ${receiptBuildProfile} does not match required profile ${expectedBuildProfile}`,
+      { code: 'engine-build-profile', remediation: ENGINE_PREPARE_COMMAND },
     );
   }
   if (currentInputIdentity) assertEngineInputIdentity(receipt.inputIdentity, currentInputIdentity);

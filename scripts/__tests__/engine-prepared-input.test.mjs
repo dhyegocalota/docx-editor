@@ -38,7 +38,7 @@ const PROTECTION = {
 
 function writeSealedEngine(
   v2Root,
-  { version = '1.2.3', mutateAfterSeal = null, inputIdentity = null, runtimeOutputs = [] } = {},
+  { version = '1.2.3', buildProfile, mutateAfterSeal = null, inputIdentity = null, runtimeOutputs = [] } = {},
 ) {
   writeFileSync(path.join(v2Root, 'package.json'), JSON.stringify({ name: '@superdoc/docx-engine', version }));
   const dist = path.join(v2Root, 'dist');
@@ -81,6 +81,7 @@ function writeSealedEngine(
     v2Root,
     receipt: {
       engineVersion: version,
+      ...(buildProfile ? { buildProfile } : {}),
       target: 'package',
       builtAtIso: new Date().toISOString(),
       authority: { nonce: 'a'.repeat(32), mode: 'standalone', orchestrator: 'direct' },
@@ -128,6 +129,14 @@ test('a sealed prepared engine verifies and reports its receipt digest', () => {
     assert.equal(verified.engineVersion, '1.2.3');
     assert.match(verified.receipt.digest, /^[0-9a-f]{64}$/);
     assert.ok(verified.surfaces.dist.fileCount >= 4);
+  });
+});
+
+test('prepared engine reuse cannot cross canonical and eval-fast build profiles', () => {
+  withTemp((v2Root) => {
+    writeSealedEngine(v2Root, { buildProfile: 'eval-fast' });
+    assert.throws(() => verifyPreparedEngine({ v2Root, expectedVersion: '1.2.3' }), /eval-fast does not match required profile canonical/);
+    assert.doesNotThrow(() => verifyPreparedEngine({ v2Root, expectedVersion: '1.2.3', expectedBuildProfile: 'eval-fast' }));
   });
 });
 
