@@ -1265,6 +1265,52 @@ function liveCrossReferenceResultSignature(block: FlowBlock | undefined): string
   return entries.length > 0 ? JSON.stringify(entries) : null;
 }
 
+function collectTableOwnedFootnoteIds(
+  blocks: readonly FlowBlock[],
+  references: readonly { id: string; blockId?: string }[],
+): Set<string> {
+  const noteIdsByBlockId = new Map<string, string[]>();
+  for (const reference of references) {
+    if (!reference.blockId) continue;
+    const noteIds = noteIdsByBlockId.get(reference.blockId) ?? [];
+    noteIds.push(reference.id);
+    noteIdsByBlockId.set(reference.blockId, noteIds);
+  }
+  const unresolvedBlockIds = new Set(noteIdsByBlockId.keys());
+  const tableOwnedFootnoteIds = new Set<string>();
+  const visit = (block: FlowBlock, insideTable: boolean): void => {
+    if (unresolvedBlockIds.has(block.id)) {
+      if (insideTable || block.kind === 'table') {
+        for (const noteId of noteIdsByBlockId.get(block.id) ?? []) tableOwnedFootnoteIds.add(noteId);
+      }
+      unresolvedBlockIds.delete(block.id);
+    }
+    if (block.kind === 'list') {
+      for (const item of (block as ListBlock).items ?? []) visit(item.paragraph, insideTable);
+      return;
+    }
+    if (block.kind === 'table') {
+      for (const row of (block as TableBlock).rows ?? []) {
+        for (const cell of row.cells ?? []) {
+          for (const child of cell.blocks ?? (cell.paragraph ? [cell.paragraph] : [])) visit(child, true);
+        }
+      }
+      return;
+    }
+    if (block.kind === 'drawing') {
+      const drawing = block as DrawingBlock;
+      if (drawing.drawingKind === 'textboxShape') {
+        for (const child of drawing.contentBlocks ?? []) visit(child, insideTable);
+      }
+    }
+  };
+  for (const block of blocks) {
+    visit(block, false);
+    if (unresolvedBlockIds.size === 0) break;
+  }
+  return tableOwnedFootnoteIds;
+}
+
 function mergeLiveCrossReferenceDirtyRegion(
   proved: ReturnType<typeof computeDirtyRegions>,
   liveChangedBlockIds: readonly string[],
@@ -4068,6 +4114,8 @@ export async function incrementalLayout(
         return ids;
       };
 
+      let tableOwnedFootnoteIds: ReadonlySet<string> = new Set();
+
       const measureFootnoteBlocks = async (ids: Set<string>) => {
         try {
           return await measureNoteBlocks(
@@ -4203,10 +4251,16 @@ export async function incrementalLayout(
           // The carry-forward bump counts only the FIRST LINE of the last entry
           // (the rest continues onto the following page); the terminal-page bump
           // needs full heights because there is nowhere to continue.
-          const clusterDemandFor = (targetPageIndex: number, lastEntryFirstLineOnly: boolean): number => {
+          const clusterDemandFor = (
+            targetPageIndex: number,
+            lastEntryFirstLineOnly: boolean,
+            excludeTableOwnedAnchors = false,
+          ): number => {
             let demand = 0;
             for (let cIdx = 0; cIdx < columnCount; cIdx += 1) {
-              const ids = idsByColumn.get(targetPageIndex)?.get(cIdx) ?? [];
+              const ids = (idsByColumn.get(targetPageIndex)?.get(cIdx) ?? []).filter(
+                (id) => !excludeTableOwnedAnchors || !tableOwnedFootnoteIds.has(id),
+              );
               if (ids.length === 0) continue;
               let columnCluster = 0;
               for (let i = 0; i < ids.length; i += 1) {
@@ -4241,8 +4295,30 @@ export async function incrementalLayout(
                 });
               });
             });
-            // Next page's mandatory cluster demand (ordered minimum).
-            const nextClusterDemand = clusterDemandFor(pageIndex + 1, true);
+            // A table can require the whole body area to keep its anchor row
+            // together. Reserving its note cluster one page early displaces
+            // the table, then the anchors and reserve chase each other across
+            // passes. Defer that demand only when the existing tail has enough
+            // physical band capacity for every pending and anchored note. If
+            // it does not, preserve the advance demand so the body yields the
+            // additional page that the continuation needs.
+            let tailDemand = continuationDemand;
+            let tailCapacity = Math.max(
+              0,
+              computeMaxFootnoteReserve(
+                layoutForPages,
+                pageIndex + 1,
+                Number.isFinite(baseReserves?.[pageIndex + 1]) ? Math.max(0, baseReserves[pageIndex + 1]) : 0,
+              ) - bandOverhead,
+            );
+            for (let targetPageIndex = pageIndex + 1; targetPageIndex < pageCount; targetPageIndex += 1) {
+              tailDemand += clusterDemandFor(targetPageIndex, false);
+              if (targetPageIndex > pageIndex + 1) {
+                tailCapacity += Math.max(0, maxBandFor(targetPageIndex) - bandOverhead);
+              }
+            }
+            const tailCanDrainTableAnchors = tailDemand <= tailCapacity;
+            const nextClusterDemand = clusterDemandFor(pageIndex + 1, true, tailCanDrainTableAnchors);
             if (continuationDemand > 0 || nextClusterDemand > 0) {
               const nextPageMaxBand = maxBandFor(pageIndex + 1);
               // The band has a single overhead block (separator + padding)
@@ -5493,6 +5569,7 @@ export async function incrementalLayout(
             footnoteCoupledRejection = error.code;
           }
         }
+        tableOwnedFootnoteIds = collectTableOwnedFootnoteIds(currentBlocks, footnotesInput.refs);
         let plan = computeFootnoteLayoutPlan(
           layout,
           idsByColumn,
