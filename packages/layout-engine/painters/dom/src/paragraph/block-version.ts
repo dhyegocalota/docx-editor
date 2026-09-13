@@ -1,5 +1,5 @@
 import type { ImageRun, ParagraphAttrs, ParagraphBlock, TextRun, TrackedChangeMeta } from '@superdoc/contracts';
-import { getParagraphInlineDirection } from '@superdoc/contracts';
+import { getParagraphInlineDirection, getSdtMetadataVersion as sdtMetadataVersion } from '@superdoc/contracts';
 import { getFontConfigVersion } from '@superdoc/font-system';
 import { hashParagraphBorders } from '../paragraph-hash-utils.js';
 import {
@@ -195,7 +195,15 @@ export const deriveParagraphBlockVersion = (
     : '';
 
   const sdtVersion = getSdtMetadataVersion(attrs?.sdt);
-  const parts = [markerVersion, runsVersion, paragraphAttrsVersion, sdtVersion].filter(Boolean);
+  const runSdtVersion = JSON.stringify(block.runs.map((run) => ('sdt' in run ? getSdtMetadataVersion(run.sdt) : '')));
+  const parts = [
+    markerVersion,
+    runsVersion,
+    paragraphAttrsVersion,
+    sdtVersion,
+    runSdtVersion,
+    getSdtMetadataVersion(attrs?.containerSdt),
+  ].filter(Boolean);
   return parts.join('|');
 };
 
@@ -208,6 +216,9 @@ export const hashParagraphBlockForTableVersion = (
   const runs = paragraphBlock.runs ?? [];
   let hash = hashNumber(seed, runs.length);
   const attrs = paragraphBlock.attrs as ParagraphAttrs | undefined;
+
+  hash = hashString(hash, sdtMetadataVersion(attrs?.sdt));
+  hash = hashString(hash, sdtMetadataVersion(attrs?.containerSdt));
 
   if (attrs) {
     hash = hashString(hash, attrs.alignment ?? '');
@@ -228,6 +239,7 @@ export const hashParagraphBlockForTableVersion = (
   }
 
   for (const run of runs) {
+    if ('sdt' in run) hash = hashString(hash, sdtMetadataVersion(run.sdt));
     if ('text' in run && typeof run.text === 'string') {
       hash = hashString(hash, run.text);
     }

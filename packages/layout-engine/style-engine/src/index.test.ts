@@ -6,6 +6,43 @@ describe('resolveSdtMetadata', () => {
     clearSdtMetadataCache();
   });
 
+  for (const nodeType of ['structuredContent', 'structuredContentBlock']) {
+    for (const property of ['alias', 'tag']) {
+      for (const cacheKey of [undefined, 'adapter-control-2101']) {
+        it(`${nodeType} resolves updated ${property} with ${cacheKey ? 'an explicit' : 'an ID-derived'} cache key (SD-3187)`, () => {
+          const attrs = { id: '2101', alias: 'Client name', tag: 'client.name' };
+          const first = resolveSdtMetadata({ nodeType, attrs, cacheKey });
+          const updated = resolveSdtMetadata({ nodeType, attrs: { ...attrs, [property]: 'updated' }, cacheKey });
+
+          expect(updated).toMatchObject({ ...attrs, [property]: 'updated' });
+          expect(first).toMatchObject(attrs);
+        });
+      }
+    }
+
+    it(`${nodeType} keeps identical metadata identity for unchanged controls`, () => {
+      const attrs = { id: '2101', alias: 'Client name', tag: 'client.name' };
+      const first = resolveSdtMetadata({ nodeType, attrs, cacheKey: 'adapter-control-2101' });
+      const second = resolveSdtMetadata({ nodeType, attrs: { ...attrs }, cacheKey: 'adapter-control-2101' });
+      expect(second).toBe(first);
+    });
+
+    it(`${nodeType} clears removed alias/tag without changing the previous metadata`, () => {
+      const first = resolveSdtMetadata({ nodeType, attrs: { id: '2101', alias: 'Client', tag: 'client' } });
+      const cleared = resolveSdtMetadata({ nodeType, attrs: { id: '2101', alias: '', tag: null } });
+      expect(cleared).toMatchObject({ alias: undefined, tag: undefined });
+      expect(first).toMatchObject({ alias: 'Client', tag: 'client' });
+    });
+
+    it(`${nodeType} resolves the latest metadata after repeated updates (SD-3187)`, () => {
+      for (const alias of ['Original', 'Intermediate']) {
+        resolveSdtMetadata({ nodeType, attrs: { id: '2101', alias, tag: alias } });
+      }
+      const latest = resolveSdtMetadata({ nodeType, attrs: { id: '2101', alias: 'Latest', tag: 'latest' } });
+      expect(latest).toMatchObject({ alias: 'Latest', tag: 'latest' });
+    });
+  }
+
   it('normalizes field annotation metadata', () => {
     const metadata = resolveSdtMetadata({
       nodeType: 'fieldAnnotation',

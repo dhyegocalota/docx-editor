@@ -1,6 +1,7 @@
 import {
   buildLayoutSourceIdentityForFragment,
   getParagraphInlineDirection,
+  getSdtMetadataVersion,
   type DrawingBlock,
   type FieldAnnotationRun,
   type FlowBlock,
@@ -12,7 +13,6 @@ import {
   type LayoutStoryLocator,
   type ParagraphAttrs,
   type ParagraphBlock,
-  type SdtMetadata,
   type ShapeGroupDrawing,
   type SourceAnchor,
   type TableAttrs,
@@ -34,28 +34,6 @@ import {
   getRunUnderlineColor,
   getRunUnderlineStyle,
 } from './hashUtils.js';
-
-// ---------------------------------------------------------------------------
-// SDT metadata helpers
-// ---------------------------------------------------------------------------
-
-const getSdtMetadataId = (metadata: SdtMetadata | null | undefined): string => {
-  if (!metadata) return '';
-  if ('id' in metadata && metadata.id != null) {
-    return String(metadata.id);
-  }
-  return '';
-};
-
-const getSdtMetadataLockMode = (metadata: SdtMetadata | null | undefined): string => {
-  if (!metadata) return '';
-  return metadata.type === 'structuredContent' ? (metadata.lockMode ?? '') : '';
-};
-
-const getSdtMetadataVersion = (metadata: SdtMetadata | null | undefined): string => {
-  if (!metadata) return '';
-  return [metadata.type, getSdtMetadataLockMode(metadata), getSdtMetadataId(metadata)].join(':');
-};
 
 const getTrackedChangeLayers = (run: TextRun): TrackedChangeMeta[] => {
   if (Array.isArray(run.trackedChanges) && run.trackedChanges.length > 0) {
@@ -453,8 +431,16 @@ export const deriveBlockVersion = (block: FlowBlock): string => {
 
     const sdtAttrs = (block.attrs as ParagraphAttrs | undefined)?.sdt;
     const sdtVersion = getSdtMetadataVersion(sdtAttrs);
+    const runSdtVersion = JSON.stringify(block.runs.map((run) => ('sdt' in run ? getSdtMetadataVersion(run.sdt) : '')));
 
-    const parts = [markerVersion, runsVersion, paragraphAttrsVersion, sdtVersion].filter(Boolean);
+    const parts = [
+      markerVersion,
+      runsVersion,
+      paragraphAttrsVersion,
+      sdtVersion,
+      runSdtVersion,
+      getSdtMetadataVersion(attrs?.containerSdt),
+    ].filter(Boolean);
     return parts.join('|');
   }
 
@@ -569,6 +555,9 @@ export const deriveBlockVersion = (block: FlowBlock): string => {
 
             const attrs = paragraphBlock.attrs as ParagraphAttrs | undefined;
 
+            hash = hashString(hash, getSdtMetadataVersion(attrs?.sdt));
+            hash = hashString(hash, getSdtMetadataVersion(attrs?.containerSdt));
+
             if (attrs) {
               hash = hashString(hash, attrs.alignment ?? '');
               hash = hashNumber(hash, attrs.spacing?.before ?? 0);
@@ -588,6 +577,7 @@ export const deriveBlockVersion = (block: FlowBlock): string => {
             }
 
             for (const run of runs) {
+              if ('sdt' in run) hash = hashString(hash, getSdtMetadataVersion(run.sdt));
               if (run.kind === 'image') {
                 hash = hashString(hash, renderedInlineImageRunVersion(run as ImageRun));
                 hash = hashNumber(hash, run.pmStart ?? -1);
@@ -646,10 +636,9 @@ export const deriveBlockVersion = (block: FlowBlock): string => {
         }
       }
       if (tblAttrs.sdt) {
-        hash = hashString(hash, tblAttrs.sdt.type);
-        hash = hashString(hash, getSdtMetadataLockMode(tblAttrs.sdt));
-        hash = hashString(hash, getSdtMetadataId(tblAttrs.sdt));
+        hash = hashString(hash, getSdtMetadataVersion(tblAttrs.sdt));
       }
+      hash = hashString(hash, getSdtMetadataVersion(tblAttrs.containerSdt));
     }
 
     return [block.id, tableBlock.rows.length, hash.toString(16)].join('|');

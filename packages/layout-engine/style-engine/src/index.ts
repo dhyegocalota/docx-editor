@@ -166,8 +166,10 @@ export function resolveSdtMetadata(input?: ResolveSdtMetadataInput | null): SdtM
   const normalizedAttrs = isPlainObject(attrs) ? (attrs as Record<string, unknown>) : {};
   const cacheKey = buildSdtCacheKey(nodeType, normalizedAttrs, explicitKey);
 
-  if (cacheKey && sdtMetadataCache.has(cacheKey)) {
-    return sdtMetadataCache.get(cacheKey);
+  const cached = cacheKey ? sdtMetadataCache.get(cacheKey) : undefined;
+  // A content control keeps its ID when updateStructuredContentById changes its metadata.
+  if (cached && nodeType !== 'structuredContent' && nodeType !== 'structuredContentBlock') {
+    return cached;
   }
 
   let metadata: SdtMetadata | undefined;
@@ -189,6 +191,19 @@ export function resolveSdtMetadata(input?: ResolveSdtMetadataInput | null): SdtM
   }
 
   if (metadata && cacheKey) {
+    if (
+      metadata.type === 'structuredContent' &&
+      cached?.type === 'structuredContent' &&
+      metadata.scope === cached.scope &&
+      metadata.id === cached.id &&
+      metadata.alias === cached.alias &&
+      metadata.tag === cached.tag &&
+      metadata.lockMode === cached.lockMode &&
+      metadata.appearance === cached.appearance &&
+      metadata.sdtPr === cached.sdtPr
+    ) {
+      return cached;
+    }
     sdtMetadataCache.set(cacheKey, metadata);
   }
 

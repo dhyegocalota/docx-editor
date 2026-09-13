@@ -21,6 +21,7 @@ export default defineConfig({
       './packages/ai',
       './packages/collaboration-yjs',
       './packages/layout-engine/contracts',
+      './packages/layout-engine/layout-resolved',
       './packages/layout-engine/layout-bridge',
       './packages/layout-engine/measuring/dom',
       './packages/layout-engine/painters/dom',

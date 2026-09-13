@@ -106,7 +106,4 @@ export const getSdtMetadataLockMode = (metadata: SdtMetadata | null | undefined)
   return metadata.type === 'structuredContent' ? (metadata.lockMode ?? '') : '';
 };
 
-export const getSdtMetadataVersion = (metadata: SdtMetadata | null | undefined): string => {
-  if (!metadata) return '';
-  return [metadata.type, getSdtMetadataLockMode(metadata), getSdtMetadataId(metadata)].join(':');
-};
+export { getSdtMetadataVersion } from '@superdoc/contracts';

@@ -163,6 +163,7 @@ export {
   hasExplicitSdtContainerKey,
   isSdtContainerMetadata,
 } from './sdt-container.js';
+export { getSdtMetadataVersion } from './sdt-metadata.js';
 export {
   resolveInheritedHeaderFooterRef,
   resolveInheritedHeaderFooterRefWithType,

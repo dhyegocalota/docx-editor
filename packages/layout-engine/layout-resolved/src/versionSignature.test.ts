@@ -6,11 +6,83 @@ import type {
   ImageRun,
   ParagraphBlock,
   SourceAnchor,
+  StructuredContentMetadata,
   TableBlock,
   TabRun,
   TextRun,
   VectorShapeDrawing,
 } from '@superdoc/contracts';
+
+describe('deriveBlockVersion - structured content metadata (SD-3187)', () => {
+  const paragraph = (scope: 'inline' | 'block', attrs: Partial<StructuredContentMetadata>): ParagraphBlock => {
+    const sdt: StructuredContentMetadata = {
+      type: 'structuredContent',
+      scope,
+      id: '2101',
+      alias: 'Client',
+      tag: 'client',
+      ...attrs,
+    };
+    return {
+      kind: 'paragraph',
+      id: 'field-paragraph',
+      attrs: scope === 'block' ? { sdt } : {},
+      runs: [{ text: 'Unchanged content', fontFamily: 'Arial', fontSize: 16, ...(scope === 'inline' ? { sdt } : {}) }],
+    };
+  };
+
+  for (const scope of ['inline', 'block'] as const) {
+    for (const property of ['alias', 'tag'] as const) {
+      it(`invalidates ${scope} paint reuse when only ${property} changes`, () => {
+        expect(deriveBlockVersion(paragraph(scope, { [property]: 'Updated' }))).not.toBe(
+          deriveBlockVersion(paragraph(scope, {})),
+        );
+      });
+    }
+
+    it(`keeps ${scope} paint reuse stable for equivalent metadata objects`, () => {
+      expect(deriveBlockVersion(paragraph(scope, {}))).toBe(deriveBlockVersion(paragraph(scope, {})));
+    });
+  }
+
+  const table = (block: ParagraphBlock): TableBlock => ({
+    kind: 'table',
+    id: 'field-table',
+    rows: [{ id: 'row', cells: [{ id: 'cell', blocks: [block] }] }],
+  });
+
+  for (const property of ['alias', 'tag'] as const) {
+    for (const scope of ['inline', 'block'] as const) {
+      it(`invalidates table paint reuse when a ${scope} control's ${property} changes`, () => {
+        expect(deriveBlockVersion(table(paragraph(scope, { [property]: 'Updated' })))).not.toBe(
+          deriveBlockVersion(table(paragraph(scope, {}))),
+        );
+      });
+    }
+
+    for (const placement of ['sdt', 'containerSdt'] as const) {
+      it(`invalidates a table wrapped by ${placement} when ${property} changes`, () => {
+        const original = {
+          ...table(paragraph('block', {})),
+          attrs: { [placement]: paragraph('block', {}).attrs!.sdt },
+        };
+        const updated = {
+          ...original,
+          attrs: { [placement]: paragraph('block', { [property]: 'Updated' }).attrs!.sdt },
+        };
+        expect(deriveBlockVersion(updated)).not.toBe(deriveBlockVersion(original));
+      });
+    }
+
+    it(`invalidates a tab-only control when ${property} changes`, () => {
+      const original = paragraph('inline', {});
+      const updated = paragraph('inline', { [property]: 'Updated' });
+      original.runs = [{ kind: 'tab', text: '\t', sdt: (original.runs[0] as TextRun).sdt }];
+      updated.runs = [{ kind: 'tab', text: '\t', sdt: (updated.runs[0] as TextRun).sdt }];
+      expect(deriveBlockVersion(updated)).not.toBe(deriveBlockVersion(original));
+    });
+  }
+});
 
 describe('sourceAnchorSignature', () => {
   it('is stable for equivalent source anchors with different object key order', () => {

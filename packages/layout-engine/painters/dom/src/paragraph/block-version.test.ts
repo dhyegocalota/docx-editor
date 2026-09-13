@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import type { ParagraphBlock } from '@superdoc/contracts';
+import type { ParagraphBlock, StructuredContentMetadata } from '@superdoc/contracts';
 import { deriveParagraphBlockVersion } from './block-version.js';
+
+describe('deriveParagraphBlockVersion - structured content metadata (SD-3187)', () => {
+  const paragraph = (scope: 'inline' | 'block', attrs: Partial<StructuredContentMetadata>): ParagraphBlock => {
+    const sdt: StructuredContentMetadata = {
+      type: 'structuredContent',
+      scope,
+      id: '2101',
+      alias: 'Client',
+      tag: 'client',
+      ...attrs,
+    };
+    return {
+      kind: 'paragraph',
+      id: 'field-paragraph',
+      attrs: scope === 'block' ? { sdt } : {},
+      runs: [{ text: 'Unchanged content', fontFamily: 'Arial', fontSize: 16, ...(scope === 'inline' ? { sdt } : {}) }],
+    };
+  };
+  const version = (block: ParagraphBlock) =>
+    deriveParagraphBlockVersion(
+      block,
+      (sdt) => JSON.stringify(sdt) ?? '',
+      () => '',
+    );
+
+  for (const scope of ['inline', 'block'] as const) {
+    for (const property of ['alias', 'tag'] as const) {
+      it(`invalidates ${scope} paint reuse when only ${property} changes`, () => {
+        expect(version(paragraph(scope, { [property]: 'Updated' }))).not.toBe(version(paragraph(scope, {})));
+      });
+    }
+
+    it(`keeps ${scope} paint reuse stable for equivalent metadata objects`, () => {
+      expect(version(paragraph(scope, {}))).toBe(version(paragraph(scope, {})));
+    });
+  }
+});
 
 const makeParagraph = (color: string): ParagraphBlock => ({
   kind: 'paragraph',
