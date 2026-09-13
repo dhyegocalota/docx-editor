@@ -40,7 +40,7 @@ export function registerLifecycleTools(server: McpServer, sessions: SessionManag
       title: 'Save Document',
       description: 'Save the document to disk. Writes to the original path unless "out" is specified.',
       inputSchema: {
-        session_id: z.string().describe('Session ID from superdoc_open.'),
+        session_id: z.string().describe('Session ID from superdoc_open or superdoc_attach.'),
         out: z.string().optional().describe('Save to a different file path instead of the original.'),
       },
       annotations: { readOnlyHint: false },

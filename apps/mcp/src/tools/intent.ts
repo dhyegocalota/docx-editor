@@ -95,7 +95,7 @@ export function jsonSchemaPropertyToZod(prop: Record<string, unknown>): z.ZodTyp
  */
 function buildZodSchema(tool: CatalogTool): Record<string, z.ZodTypeAny> {
   const shape: Record<string, z.ZodTypeAny> = {
-    session_id: z.string().describe('Session ID from superdoc_open.'),
+    session_id: z.string().describe('Session ID from superdoc_open or superdoc_attach.'),
   };
 
   const props = tool.inputSchema.properties ?? {};

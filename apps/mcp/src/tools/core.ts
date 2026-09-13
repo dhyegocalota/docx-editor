@@ -29,7 +29,7 @@ interface CoreCatalogTool {
 
 function buildZodShape(tool: CoreCatalogTool): Record<string, z.ZodTypeAny> {
   const shape: Record<string, z.ZodTypeAny> = {
-    session_id: z.string().describe('Session ID from superdoc_open.'),
+    session_id: z.string().describe('Session ID from superdoc_open or superdoc_attach.'),
   };
   const props = tool.inputSchema.properties ?? {};
   const required = new Set(tool.inputSchema.required ?? []);

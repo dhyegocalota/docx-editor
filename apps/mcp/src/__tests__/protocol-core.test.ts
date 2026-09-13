@@ -54,7 +54,14 @@ describe('MCP protocol integration — core preset', () => {
     const { tools } = await client.listTools();
     const names = tools.map((tool) => tool.name).sort();
     expect(names).toEqual(
-      ['superdoc_open', 'superdoc_save', 'superdoc_close', 'superdoc_inspect', 'superdoc_perform_action'].sort(),
+      [
+        'superdoc_open',
+        'superdoc_attach',
+        'superdoc_save',
+        'superdoc_close',
+        'superdoc_inspect',
+        'superdoc_perform_action',
+      ].sort(),
     );
     // superdoc_execute_code is dispatch-only in the SDK and must not be
     // reachable over MCP.
