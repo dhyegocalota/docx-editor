@@ -10629,7 +10629,7 @@ describe('public ui — block / paragraph / list / link / create routing (row 74
 
   it('seeds a collapsed caret immediately but defers its worker validation during foreground typing', async () => {
     vi.useFakeTimers();
-    const seed = caretSelectionInfo('P1', 1);
+    let seed = caretSelectionInfo('P1', 1);
     let foreground = { active: 1, pending: 0 };
     let publishSelection: (() => void) | null = null;
     const current = vi.fn(async () => seed);
@@ -10664,11 +10664,82 @@ describe('public ui — block / paragraph / list / link / create routing (row 74
     expect(ui.commands.get('font-family').getState().value).toBe('Tahoma');
     expect(current).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(120);
+    await vi.advanceTimersByTimeAsync(0);
+    const observer = vi.fn();
+    const stop = ui.select((snapshot) => snapshot).subscribe(observer);
+    observer.mockClear();
+    await vi.advanceTimersByTimeAsync(600);
     expect(current).not.toHaveBeenCalled();
+    expect.soft(observer, 'Busy retry ticks must not recompute unchanged UI').not.toHaveBeenCalled();
+    seed = caretSelectionInfo('P1', 2);
+    publishSelection?.();
+    expect(ui.selection.getSnapshot().selectionTarget).toEqual(seed.selectionTarget);
+    expect(observer).toHaveBeenCalled();
+    observer.mockClear();
+    await vi.advanceTimersByTimeAsync(600);
+    expect.soft(observer, 'Real selection updates must not restart redundant busy recomputes').not.toHaveBeenCalled();
     foreground = { active: 0, pending: 0 };
     await vi.advanceTimersByTimeAsync(120);
     expect(current).toHaveBeenCalledTimes(1);
+    expect(ui.selection.getSnapshot().selectionTarget).toEqual(seed.selectionTarget);
+    expect(observer).toHaveBeenCalled();
+    stop();
+    ui.destroy();
+  });
+
+  it('SD-5061 waits for foreground work without recomputing an unseeded selection on every retry', async () => {
+    vi.useFakeTimers();
+    let foreground = { active: 1, pending: 0 };
+    const current = vi.fn(async () => SELECTION_INFO);
+    const superdoc = makeBlockSuperdoc(
+      { selection: { current } },
+      { selectionInfo: null, editorExtra: { host: { getForegroundMutationState: () => foreground } } },
+    );
+    const ui = createSuperDocUI({ superdoc });
+    await vi.advanceTimersByTimeAsync(0);
+    const observer = vi.fn();
+    const stop = ui.select((snapshot) => snapshot).subscribe(observer);
+    observer.mockClear();
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current).not.toHaveBeenCalled();
+    expect.soft(observer).not.toHaveBeenCalled();
+    foreground = { active: 0, pending: 0 };
+    await vi.advanceTimersByTimeAsync(360);
+    expect(current).toHaveBeenCalledTimes(1);
+    expect(ui.selection.getSnapshot()).toMatchObject({ status: 'ready', selectionTarget: SELECTION_TARGET });
+    expect(observer).toHaveBeenCalled();
+    stop();
+    ui.destroy();
+  });
+
+  it('SD-5061 publishes actual asynchronous read settlements while foreground work remains active', async () => {
+    vi.useFakeTimers();
+    let foreground = { active: 0, pending: 0 };
+    let resolveSelection!: (value: typeof SELECTION_INFO) => void;
+    const current = vi.fn(
+      () =>
+        new Promise<typeof SELECTION_INFO>((resolve) => {
+          resolveSelection = resolve;
+        }),
+    );
+    const superdoc = makeBlockSuperdoc(
+      { selection: { current } },
+      { selectionInfo: null, editorExtra: { host: { getForegroundMutationState: () => foreground } } },
+    );
+    const ui = createSuperDocUI({ superdoc });
+    await vi.advanceTimersByTimeAsync(240);
+    expect(current).toHaveBeenCalledTimes(1);
+    foreground = { active: 1, pending: 0 };
+    const observer = vi.fn();
+    const stop = ui.select((snapshot) => snapshot).subscribe(observer);
+    observer.mockClear();
+    resolveSelection(SELECTION_INFO);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ui.selection.getSnapshot()).toMatchObject({ status: 'ready', selectionTarget: SELECTION_TARGET });
+    expect(observer).toHaveBeenCalled();
+    expect(foreground.active).toBe(1);
+    stop();
+    ui.destroy();
   });
 
   it('does not publish unresolved font values before an Enter-created paragraph paints (SD-4464)', async () => {

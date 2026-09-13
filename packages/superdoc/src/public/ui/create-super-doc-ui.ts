@@ -3143,9 +3143,8 @@ export function createSuperDocUI(options: SuperDocUIOptions): SuperDocUI {
     foregroundAsyncRetryTimer = setTimeout(() => {
       foregroundAsyncRetryTimer = null;
       if (disposed) return;
-      if (pendingSelectionSeedValidationToken && foregroundMutationActive()) {
+      if (foregroundMutationActive()) {
         scheduleForegroundAsyncRetry();
-        recompute();
         return;
       }
       const validationToken = pendingSelectionSeedValidationToken;
