@@ -646,6 +646,9 @@ const normalizeFontSize = (value: unknown, fallback = DEFAULT_PARAGRAPH_FONT_SIZ
 const normalizeFontFamily = (value: unknown, fallback = DEFAULT_PARAGRAPH_FONT_FAMILY): string =>
   typeof value === 'string' && value.trim().length > 0 ? value : fallback;
 
+const resolveMarkerFontFamily = (markerFontFamily: string | null | undefined): string =>
+  toCssFontFamily(markerFontFamily) ?? toCssFontFamily(DEFAULT_PARAGRAPH_FONT_FAMILY) ?? DEFAULT_PARAGRAPH_FONT_FAMILY;
+
 /**
  * Tab stop in pixel coordinates for measurement.
  * Converted from OOXML twips at measurement boundary.
@@ -2158,7 +2161,7 @@ async function measureParagraphBlock(
         const markerText = wordLayout.marker.markerText ?? '';
         const markerRun: TextRun = {
           text: markerText,
-          fontFamily: toCssFontFamily(wordLayout.marker.run.fontFamily) ?? wordLayout.marker.run.fontFamily,
+          fontFamily: resolveMarkerFontFamily(wordLayout.marker.run.fontFamily),
           fontSize: wordLayout.marker.run.fontSize ?? fallbackFontSize,
           bold: wordLayout.marker.run.bold,
           italic: wordLayout.marker.run.italic,
@@ -2276,7 +2279,7 @@ async function measureParagraphBlock(
     hanging,
     (markerText: string, marker: MinimalMarker) => {
       const markerRun = {
-        fontFamily: toCssFontFamily(marker.run?.fontFamily) ?? marker.run?.fontFamily ?? 'Arial',
+        fontFamily: resolveMarkerFontFamily(marker.run?.fontFamily),
         fontSize: marker.run?.fontSize ?? fallbackFontSize,
         bold: marker.run?.bold ?? false,
         italic: marker.run?.italic ?? false,
@@ -5538,7 +5541,7 @@ async function measureListBlock(
       const paragraphFallbackFontSize = getPrimaryRun(item.paragraph).fontSize ?? DEFAULT_PARAGRAPH_FONT_SIZE;
       const markerFontRun: TextRun = {
         text: marker.markerText,
-        fontFamily: toCssFontFamily(marker.run.fontFamily) ?? marker.run.fontFamily,
+        fontFamily: resolveMarkerFontFamily(marker.run.fontFamily),
         fontSize: marker.run.fontSize ?? paragraphFallbackFontSize,
         bold: marker.run.bold,
         italic: marker.run.italic,

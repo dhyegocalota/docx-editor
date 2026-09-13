@@ -123,6 +123,22 @@ export const FONT_SLOT_THEME_PAIRS: Array<[keyof RunFontFamilyProperties, keyof 
   ['cs', 'cstheme'],
 ];
 
+const CONCRETE_FONT_FAMILY_KEYS: Array<keyof RunFontFamilyProperties> = [
+  ...FONT_SLOT_THEME_PAIRS.map(([concreteKey]) => concreteKey),
+  'val',
+];
+
+function omitInheritedFontFamilies(source: RunFontFamilyProperties): RunFontFamilyProperties {
+  const result = { ...source };
+  for (const key of CONCRETE_FONT_FAMILY_KEYS) {
+    const value = result[key];
+    if (typeof value === 'string' && value.trim().toLowerCase() === 'inherit') {
+      delete result[key];
+    }
+  }
+  return result;
+}
+
 function dropConflictingFontSlots(
   target: RunFontFamilyProperties,
   source: RunFontFamilyProperties,
@@ -144,7 +160,7 @@ export function combineRunProperties(propertiesArray: RunProperties[]): RunPrope
     fullOverrideProps: ['color'],
     specialHandling: {
       fontFamily: (target: Record<string, unknown>, source: Record<string, unknown>): unknown => {
-        const fontFamilySource = { ...(source.fontFamily as object) } as RunFontFamilyProperties;
+        const fontFamilySource = omitInheritedFontFamilies(source.fontFamily as RunFontFamilyProperties);
         const fontFamilyTarget = dropConflictingFontSlots(
           (target.fontFamily as RunFontFamilyProperties) ?? {},
           fontFamilySource,

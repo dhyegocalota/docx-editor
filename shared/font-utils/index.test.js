@@ -159,6 +159,13 @@ describe('toCssFontFamily', () => {
     });
   });
 
+  describe('inherited font family', () => {
+    it('leaves inherited font selection to the surrounding document style', () => {
+      expect(toCssFontFamily('inherit')).toBeUndefined();
+      expect(toCssFontFamily('INHERIT')).toBeUndefined();
+    });
+  });
+
   describe('comma handling', () => {
     it('should return as-is when input contains comma', () => {
       expect(toCssFontFamily('Arial, sans-serif')).toBe('Arial, sans-serif');

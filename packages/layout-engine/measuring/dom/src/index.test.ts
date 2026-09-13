@@ -1762,6 +1762,43 @@ describe('measureBlock', () => {
       expect(measure.marker?.markerTextWidth).toBeGreaterThan(0);
     });
 
+    it('measures an inherited marker with the concrete editor fallback', async () => {
+      const resolvedFamilies: string[] = [];
+      const block: FlowBlock = {
+        kind: 'paragraph',
+        id: 'inherited-marker-font',
+        runs: [{ text: 'First', fontFamily: 'Calibri', fontSize: 16 }],
+        attrs: {
+          indent: { left: 24, hanging: 18 },
+          wordLayout: {
+            indentLeftPx: 24,
+            marker: {
+              markerText: '1.',
+              gutterWidthPx: 8,
+              run: {
+                fontFamily: 'inherit',
+                fontSize: 16,
+                bold: false,
+                italic: false,
+                letterSpacing: 0,
+              },
+            },
+          },
+        },
+      };
+
+      await measureBlock(block, 200, {
+        resolvePhysical: (family) => {
+          resolvedFamilies.push(family);
+          return family;
+        },
+        fontSignature: 'inherited-marker-font',
+      });
+
+      expect(resolvedFamilies).not.toContain('inherit');
+      expect(resolvedFamilies).toContain('Arial, sans-serif');
+    });
+
     it('composes the list marker font into the first line envelope only', async () => {
       const block: FlowBlock = {
         kind: 'paragraph',

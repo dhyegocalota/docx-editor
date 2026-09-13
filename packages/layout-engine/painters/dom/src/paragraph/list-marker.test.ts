@@ -37,6 +37,18 @@ describe('createListMarkerElement per-document paint isolation', () => {
     const marker = createListMarkerElement(makeDoc(), '1.', run, undefined, resolvePhysicalFamily);
     expect(markerFontFamily(marker)).toContain('Carlito');
   });
+
+  it('paints an inherited marker with the same concrete fallback used for measurement', () => {
+    const marker = createListMarkerElement(
+      makeDoc(),
+      '1.',
+      { fontFamily: 'inherit', fontSize: 16 },
+      undefined,
+      (family) => family,
+    );
+
+    expect(markerFontFamily(marker)).toBe('Arial, sans-serif');
+  });
 });
 
 describe('createListMarkerElement tracked-change marker review (Plan 5)', () => {

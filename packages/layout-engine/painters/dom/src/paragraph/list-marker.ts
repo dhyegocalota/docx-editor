@@ -107,7 +107,7 @@ export const createListMarkerElement = (
   markerEl.style.pointerEvents = 'none';
   // Compose the Word fallback stack first, then let the resolver swap only the primary family.
   // This keeps Times New Roman -> Liberation Serif on a serif fallback instead of inventing sans-serif.
-  const cssFontFamily = toCssFontFamily(run.fontFamily) ?? run.fontFamily ?? '';
+  const cssFontFamily = toCssFontFamily(run.fontFamily) ?? 'Arial, sans-serif';
   // Resolve for the marker's ACTUAL face so a single-face substitute is not mis-mapped
   // (e.g. a Bold marker on a Regular-only fallback) - matching how the marker text is measured.
   markerEl.style.fontFamily = resolvePhysical(cssFontFamily, {

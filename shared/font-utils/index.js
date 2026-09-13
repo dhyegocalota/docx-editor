@@ -44,6 +44,8 @@ export const FONT_FAMILY_FALLBACKS = Object.freeze({
  */
 export const DEFAULT_GENERIC_FALLBACK = 'sans-serif';
 
+const INHERITED_FONT_FAMILY = 'inherit';
+
 /**
  * Known serif-like font families used as a heuristic when OOXML `w:family`
  * is unavailable. This keeps fallbacks closer to Word metrics for fonts like Cambria.
@@ -270,6 +272,8 @@ export function toCssFontFamily(fontName, options = {}) {
   if (!fontName || typeof fontName !== 'string') return fontName;
   let trimmed = fontName.trim();
   if (!trimmed || trimmed.includes(',')) return trimmed;
+  // OOXML may use this placeholder instead of a concrete font; adding a fallback makes canvas measurement diverge from CSS paint.
+  if (trimmed.toLowerCase() === INHERITED_FONT_FAMILY) return undefined;
   // Replace semicolon font fallback separators (e.g., "Liberation Sans;Arial" from LibreOffice).
   // Only split on semicolons outside of quotes to preserve font names like "Foo;Bar".
   if (trimmed.includes(';')) {

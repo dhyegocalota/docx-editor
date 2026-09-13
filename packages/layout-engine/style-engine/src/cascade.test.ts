@@ -120,6 +120,20 @@ describe('cascade - combineProperties', () => {
 });
 
 describe('cascade - combineRunProperties', () => {
+  it('treats inherited concrete font slots as absent so lower-priority fonts survive', () => {
+    const result = combineRunProperties([
+      { fontFamily: { ascii: 'Times New Roman', hAnsi: 'Times New Roman', eastAsia: 'SimSun', cs: 'Arial' } },
+      { fontFamily: { ascii: 'inherit', hAnsi: 'INHERIT', eastAsia: ' inherit ', cs: 'InHeRiT' } },
+    ]);
+
+    expect(result.fontFamily).toEqual({
+      ascii: 'Times New Roman',
+      hAnsi: 'Times New Roman',
+      eastAsia: 'SimSun',
+      cs: 'Arial',
+    });
+  });
+
   it('preserves unspecified fontFamily fields from lower-priority sources', () => {
     const result = combineRunProperties([
       { fontFamily: { ascii: 'Calibri', hAnsi: 'Calibri' } },
