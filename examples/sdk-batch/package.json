@@ -9,7 +9,7 @@
     "test": "tsx --test batch.test.ts"
   },
   "dependencies": {
-    "@superdoc/sdk": "2.12.0-next.21"
+    "@superdoc/sdk": "2.12.0-next.22"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
