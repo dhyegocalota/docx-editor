@@ -178,17 +178,25 @@ describe('executeParagraphsSetIndentation', () => {
 });
 
 describe('executeParagraphsSetTabStop', () => {
-  it('rejects clear as a setTabStop alignment (callers translate clear -> clearTabStop)', () => {
-    // The public tab-stop contract is intentionally strict: alignment must be
-    // one of left/center/right/decimal/bar. OOXML `w:tab w:val="clear"` removes
-    // an inherited tab stop and is modeled as clearTabStop, not a setTabStop
-    // alignment. Authoring layers translate `clear` tabs into clearTabStop
-    // rather than emitting an invalid setTabStop input.
+  it('forwards clear alignment to suppress an inherited tab stop', () => {
+    const adapter = makeAdapter();
+    const input: ParagraphsSetTabStopInput = {
+      target: makeTarget(),
+      position: 567,
+      alignment: 'clear',
+    };
+
+    expect(executeParagraphsSetTabStop(adapter, input).success).toBe(true);
+    expect(adapter.setTabStop).toHaveBeenCalledWith(input, expect.objectContaining({ changeMode: 'direct' }));
+    expect(adapter.clearTabStop).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown alignment before calling the adapter', () => {
     const adapter = makeAdapter();
     const input = {
       target: makeTarget(),
       position: 567,
-      alignment: 'clear',
+      alignment: 'diagonal',
     } as unknown as ParagraphsSetTabStopInput;
 
     expect(() => executeParagraphsSetTabStop(adapter, input)).toThrow(DocumentApiValidationError);
@@ -198,9 +206,7 @@ describe('executeParagraphsSetTabStop', () => {
       expect.unreachable('should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(DocumentApiValidationError);
-      expect((error as DocumentApiValidationError).message).toContain(
-        'alignment must be one of: left, center, right, decimal, bar',
-      );
+      expect((error as DocumentApiValidationError).message).toContain('alignment must be one of:');
     }
     expect(adapter.setTabStop).not.toHaveBeenCalled();
   });

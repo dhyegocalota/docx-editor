@@ -98,6 +98,7 @@ export interface CitationRemoveInput {
 }
 
 export interface CitationInsertInput {
+  /** Inserts at the start of this target without replacing the selected text. */
   at: TextTarget;
   sourceIds: string[];
 }
