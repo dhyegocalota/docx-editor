@@ -1,8 +1,7 @@
 name: Feature Request
 description: Suggest a new feature or improvement
 labels:
-  - "stage: triage"
-  - "type: feature"
+  - "status: triage"
 body:
   - type: markdown
     attributes:
