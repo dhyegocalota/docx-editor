@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vite-plus/test';
 
 import {
@@ -29,8 +30,9 @@ function createFixture() {
   const packageRoot = path.join(root, 'package');
   mkdirSync(path.join(packageRoot, 'dist'), { recursive: true });
   mkdirSync(path.join(packageRoot, 'dist-cdn'));
-  writeFileSync(path.join(packageRoot, 'dist', 'superdoc.es.js'), 'export const npm = true;\n');
-  writeFileSync(path.join(packageRoot, 'dist', 'superdoc.cjs'), 'exports.npm = true;\n');
+  writeFileSync(path.join(packageRoot, 'dist', 'superdoc.es.js'), 'export { createSuperDocV2Integration } from "@superdoc/docx-engine";\n');
+  writeFileSync(path.join(packageRoot, 'dist', 'superdoc.cjs'), 'exports.npm = require("@superdoc/docx-engine");\n');
+  writeFileSync(path.join(packageRoot, 'dist', 'style.css'), '@import "@superdoc/docx-engine/style.css";\n');
   writeFileSync(path.join(packageRoot, 'dist-cdn', 'superdoc.min.js'), 'globalThis.SuperDoc = {};\n');
   writeFileSync(path.join(packageRoot, 'README.md'), '# SuperDoc\n');
   writeFileSync(path.join(packageRoot, 'LICENSE'), 'AGPL-3.0\n');
@@ -106,6 +108,34 @@ function dependencies(fixture, observed = {}) {
 }
 
 describe('sealed public packing', () => {
+  it('audits real archive contents before promoting the original compressed package', () => {
+    for (const leakPrivateSource of [false, true]) {
+      const fixture = createFixture();
+      try {
+        const adapters = dependencies(fixture);
+        delete adapters.auditTarball;
+        adapters.runPack = ({ stageRoot, packDestination }) => {
+          mkdirSync(packDestination, { recursive: true });
+          if (leakPrivateSource) writeFileSync(path.join(stageRoot, 'dist', 'leak.js'), '"v2-host/src/private.ts";');
+          const archive = path.join(packDestination, 'superdoc-2.0.0.tgz');
+          execFileSync('tar', ['-czf', archive, '-C', path.dirname(stageRoot), path.basename(stageRoot)]);
+          return archive;
+        };
+        const pack = () => packSealedPublicPackage({ packageRoot: fixture.packageRoot,
+          outputPath: fixture.outputPath, packReceiptPath: fixture.packReceiptPath, ...adapters });
+        if (leakPrivateSource) {
+          expect(pack).toThrow(/private v2 source-path marker/u);
+          expect(readFileSync(fixture.outputPath, 'utf8')).toBe('previous tarball bytes');
+        } else {
+          pack();
+          expect([...readFileSync(fixture.outputPath).subarray(0, 2)]).toEqual([0x1f, 0x8b]);
+        }
+      } finally {
+        rmSync(fixture.root, { recursive: true, force: true });
+      }
+    }
+  });
+
   it('leaves the source manifest and prior tarball byte-identical at every failure checkpoint', () => {
     const checkpoints = [
       'after-receipt-verify',

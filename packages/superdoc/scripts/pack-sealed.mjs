@@ -21,6 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { auditSuperdocPackageArtifact } from '../../../scripts/audit-publish-artifact.mjs';
+import { withUncompressedTarball } from '../../../scripts/tarball-audit.mjs';
 import {
   hashPublicTree,
   readPublicOutputSelection,
@@ -229,6 +230,10 @@ function assertTarballAllowlist(tarballPath) {
 }
 
 function auditPackedTarball(tarballPath) {
+  return withUncompressedTarball(tarballPath, auditUncompressedTarball);
+}
+
+function auditUncompressedTarball(tarballPath) {
   assertTarballAllowlist(tarballPath);
   const audit = auditSuperdocPackageArtifact(tarballPath, { label: 'superdoc-tarball' });
   if (!audit.ok) {
