@@ -186,6 +186,38 @@ describe('normalizeFragmentsForRegion', () => {
   });
 
   describe('margin-relative anchors in header', () => {
+    it.each([
+      { top: 96, header: 48, offset: 0, align: 'top', height: 892.8, expected: 48 },
+      { top: 96, header: 24, offset: 0, align: 'top', height: 892.8, expected: 72 },
+      { top: 144, header: 48, offset: 12, align: 'top', height: 120, expected: 108 },
+      { top: 96, header: 48, offset: -12, align: 'top', height: 120, expected: 36 },
+      { top: 96, header: 48, offset: 0, align: 'center', height: 120, expected: 432 },
+      { top: 96, header: 48, offset: 0, align: 'bottom', height: 120, expected: 816 },
+    ] as const)('places a no-wrap margin overlay in the physical margin frame: %j', (geometry) => {
+      const block: FlowBlock = {
+        kind: 'drawing',
+        id: 'margin-overlay',
+        drawingKind: 'vectorShape',
+        geometry: { width: 48, height: geometry.height },
+        anchor: { isAnchored: true, vRelativeFrom: 'margin', alignV: geometry.align, offsetV: geometry.offset },
+        wrap: { type: 'None' },
+      };
+      const fragment = {
+        kind: 'drawing',
+        blockId: block.id,
+        x: 0,
+        y: 0,
+        width: 48,
+        height: geometry.height,
+        isAnchored: true,
+      } as Fragment;
+      normalizeFragmentsForRegion([{ number: 1, fragments: [fragment] }], [block], [], 'header', {
+        ...fullConstraints,
+        margins: { ...fullConstraints.margins, top: geometry.top, header: geometry.header },
+      });
+      expect(fragment.y).toBeCloseTo(geometry.expected, 3);
+    });
+
     it('normalizes visible margin-relative header content to header-local y', () => {
       const block: FlowBlock = {
         kind: 'image',

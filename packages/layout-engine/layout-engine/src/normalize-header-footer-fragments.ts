@@ -130,7 +130,7 @@ function isHeaderMarginContentBlock(block: FlowBlock): block is ImageBlock | Dra
   if (block.kind !== 'image' && block.kind !== 'drawing') return false;
   if (block.anchor?.vRelativeFrom !== 'margin') return false;
   if (block.anchor.behindDoc === true) return false;
-  return block.wrap?.type !== 'None';
+  return true;
 }
 
 function normalizePageCoveringHeaderOverlay(
@@ -198,7 +198,8 @@ function normalizePageCoveringHeaderOverlay(
  * physical page offset directly because header story coordinates are page-top
  * local. Header margin-relative content anchors reset to the header-local
  * offset so they do not inflate the reserved header height by carrying
- * body-canvas coordinates.
+ * body-canvas coordinates. No-wrap foreground overlays instead resolve against
+ * the physical body margins, then subtract the header decoration origin.
  *
  * Page-anchored paragraph frames and floating footer tables are likewise
  * converted from physical-page coordinates; other paragraphs, inline images,
@@ -275,7 +276,19 @@ export function normalizeFragmentsForRegion(
       if (!isAnchoredFragment(fragment)) continue;
 
       if (kind === 'header' && isHeaderMarginContentBlock(block)) {
-        fragment.y = block.anchor?.offsetV ?? 0;
+        if (block.wrap?.type === 'None') {
+          fragment.y =
+            resolveAnchoredGraphicY({
+              anchor: block.anchor,
+              objectHeight: (fragment as { height?: number }).height ?? 0,
+              contentTop: constraints.margins.top ?? 0,
+              contentBottom: pageHeight - (constraints.margins.bottom ?? 0),
+              pageBottomMargin: constraints.margins.bottom ?? 0,
+              pageNumber: page.number,
+            }) - (constraints.margins.header ?? 0);
+        } else {
+          fragment.y = block.anchor?.offsetV ?? 0;
+        }
         continue;
       }
 
