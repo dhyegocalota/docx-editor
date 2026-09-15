@@ -188,6 +188,7 @@ export const INTENT_GROUP_META: Record<string, IntentGroupMeta> = {
       'Use scope: "block" so formatting covers the entire paragraph. ' +
       'Copy the exact property values from the existing get_content blocks (fontFamily, fontSize, color, alignment, bold, underline). Do NOT invent values: use what the blocks show. ' +
       'Also supports replace, delete, and undo/redo. For ordinary replace and delete, pass a "ref" from superdoc_search or superdoc_get_content blocks. ' +
+      'Action "delete" removes a text range and leaves the block container in place. To remove a whole paragraph, heading, list item, or table, use action "delete_block" with target:{kind:"block", nodeType, nodeId} from superdoc_get_content action "blocks", or action "delete_block_range" with "start" and "end" block addresses to remove a contiguous span of top-level blocks (inclusive). ' +
       'A search ref covers only the matched substring; a block ref covers the entire block text, so use block refs when rewriting or shortening whole paragraphs. ' +
       'To replace every block in the main body, use action "replace" with target:{kind:"story",storyType:"body"}, one text/value/content payload, and changeMode:"direct". This replaces body content, not the DOCX package, and does not require a search first. Tracked whole-body replacement is unsupported. ' +
       'For multi-step redlines or whole-clause rewrites, prefer superdoc_mutations with where:{by:"block", nodeType, nodeId} from superdoc_get_content action "blocks" includeText:true rather than relying on text selectors. ' +
@@ -246,6 +247,7 @@ export const INTENT_GROUP_META: Record<string, IntentGroupMeta> = {
         changeMode: 'direct',
       },
       { action: 'delete', ref: '<handle.ref>' },
+      { action: 'delete_block', target: { kind: 'block', nodeType: 'heading', nodeId: '<nodeId>' } },
       { action: 'undo' },
     ],
   },
@@ -1140,6 +1142,8 @@ export const OPERATION_DEFINITIONS = {
     }),
     referenceDocPath: 'blocks/delete.mdx',
     referenceGroup: 'blocks',
+    intentGroup: 'edit',
+    intentAction: 'delete_block',
   },
   'blocks.deleteRange': {
     memberPath: 'blocks.deleteRange',
@@ -1165,6 +1169,8 @@ export const OPERATION_DEFINITIONS = {
     }),
     referenceDocPath: 'blocks/delete-range.mdx',
     referenceGroup: 'blocks',
+    intentGroup: 'edit',
+    intentAction: 'delete_block_range',
   },
   'blocks.split': {
     memberPath: 'blocks.split',
