@@ -105,6 +105,7 @@ const fieldsByGroup = {
     'onFontsChanged',
   ],
   advanced: [
+    'diagnostics',
     'isDev',
     'disablePiniaDevtools',
     'layoutEngineOptions',
@@ -117,6 +118,7 @@ const fieldsByGroup = {
 } satisfies Record<ConfigGroupId, readonly ConfigFieldName[]>;
 
 const summaries = {
+  diagnostics: 'Configure bounded local Interaction History for bug reports.',
   superdocId: 'Set an ID for this Editor instance.',
   selector: 'Choose the element where the Editor mounts.',
   documentMode: 'Start in editing, suggesting, or viewing mode.',

@@ -322,6 +322,14 @@
       "group": "other"
     },
     {
+      "name": "diagnostics",
+      "type": "{\n  history?: import(\"./diagnostics.js\").InteractionHistoryConfig;\n}",
+      "typeName": "DiagnosticsConfig",
+      "required": false,
+      "description": "Configure bounded in-memory Interaction History for browser debugging.",
+      "group": "other"
+    },
+    {
       "name": "onException",
       "type": "(params: SuperDocExceptionPayload) => void",
       "required": false,

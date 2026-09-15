@@ -1,3 +1,9 @@
+import {
+  createInteractionHistory,
+  recordInteraction,
+  closeInteractionHistory,
+} from '../internal/diagnostics/interaction-history.js';
+import type { SuperDocDiagnostics } from './types/diagnostics.js';
 import '../style.css';
 
 import { EventEmitter } from 'eventemitter3';
@@ -677,6 +683,7 @@ export class SuperDoc extends EventEmitter<SuperDocEventMap> {
   static allowedTypes = [DOCX, PDF, HTML];
 
   #destroyed = false;
+  #diagnostics!: SuperDocDiagnostics;
 
   #isUpgrading = false;
 
@@ -1103,6 +1110,8 @@ export class SuperDoc extends EventEmitter<SuperDocEventMap> {
       throw new Error('SuperDoc: selector must be a valid CSS selector string or DOM element');
     }
 
+    this.#diagnostics = createInteractionHistory(this, config, () => this.version, container);
+
     // SurfaceManager must exist before `#init` returns control to the
     // caller — `openSurface()` can be called immediately after
     // construction while async init is still in flight. The manager's
@@ -1414,6 +1423,27 @@ export class SuperDoc extends EventEmitter<SuperDocEventMap> {
     }
     this.#ensureContentControlActiveChangeBridge();
     return this.#ui;
+  }
+
+  get diagnostics(): SuperDocDiagnostics {
+    return this.#diagnostics;
+  }
+
+  override emit<K extends keyof SuperDocEventMap>(
+    event: K,
+    ...args: EventEmitter.ArgumentMap<SuperDocEventMap>[Extract<K, keyof SuperDocEventMap>]
+  ): boolean {
+    if (
+      event === 'exception' ||
+      event === 'document-replaced' ||
+      event === 'ready' ||
+      event === 'active-editor-change' ||
+      event === 'collaboration-ready' ||
+      event === 'locked'
+    ) {
+      recordInteraction(this, event, () => args[0]);
+    }
+    return super.emit(event, ...args);
   }
 
   override on<K extends keyof SuperDocEventMap>(
@@ -4356,6 +4386,7 @@ export class SuperDoc extends EventEmitter<SuperDocEventMap> {
    */
   destroy() {
     // Mark as destroyed early to prevent in-flight init from mounting
+    closeInteractionHistory(this);
     this.#destroyed = true;
 
     this.#contentControlClickRoot?.removeEventListener('click', this.#handleContentControlClick, true);

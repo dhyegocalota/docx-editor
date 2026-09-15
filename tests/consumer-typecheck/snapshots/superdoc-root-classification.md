@@ -1,22 +1,22 @@
 # SD-3212 A1 — root classification
 
 Generated: derived from superdoc-root-classification.json (aligned with current root export inventory)
-Input: tests/consumer-typecheck/snapshots/superdoc-root-classification.json (276 names)
+Input: tests/consumer-typecheck/snapshots/superdoc-root-classification.json (286 names)
 
 ## Summary
 
 | Bucket | Count |
 |---|---|
-| supported-root | 273 |
+| supported-root | 283 |
 | legacy-root | 3 |
 | move-to-subpath | 0 |
 | internal-candidate | 0 |
 | NEEDS-REVIEW | 0 |
-| **total** | **276** |
+| **total** | **286** |
 
-Confidence: high=228, medium=48, low=0, needs-review=0.
+Confidence: high=238, medium=48, low=0, needs-review=0.
 
-## supported-root (273)
+## supported-root (283)
 
 | Name | Confidence | Source | Rationale |
 |---|---|---|---|
@@ -293,6 +293,11 @@ Confidence: high=228, medium=48, low=0, needs-review=0.
 | `createTheme` | medium | core | Customer-facing core API type or runtime export. Type-reachable through documented config / callback / event / method surfaces; runtime exports are documented utilities. |
 | `defineSuperDocExtension` | high | core | v2 SuperDoc extension factory/validation helper. Documented runtime export used to author extensions passed to Config.extensions. |
 | `getFileObject` | medium | core | Customer-facing core API type or runtime export. Type-reachable through documented config / callback / event / method surfaces; runtime exports are documented utilities. |
+| `DiagnosticsConfig` | high | core/types | Typed browser Interaction History configuration and detached diagnostics export. |
+| `InteractionHistoryConfig` | high | core/types | Typed browser Interaction History configuration and detached diagnostics export. |
+| `InteractionHistoryEvent` | high | core/types | Typed browser Interaction History configuration and detached diagnostics export. |
+| `InteractionHistorySnapshot` | high | core/types | Typed browser Interaction History configuration and detached diagnostics export. |
+| `SuperDocDiagnostics` | high | core/types | Typed browser Interaction History configuration and detached diagnostics export. |
 
 ## legacy-root (3)
 

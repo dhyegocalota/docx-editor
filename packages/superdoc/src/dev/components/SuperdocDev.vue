@@ -912,6 +912,21 @@ const exportDocxBlob = async () => {
   downloadBlob(blob, `${exportFileStem.value}-blob.docx`);
 };
 
+const exportInteractionHistory = () => {
+  closeExportMenu();
+  try {
+    const snapshot = superdoc.value?.diagnostics?.getSnapshot();
+    if (!snapshot) return;
+    console.log('[SuperDoc Dev] Interaction History', snapshot);
+    downloadBlob(
+      new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' }),
+      `${exportFileStem.value}-interaction-history.json`,
+    );
+  } catch (error) {
+    console.warn('[SuperDoc Dev] Could not export Interaction History', error);
+  }
+};
+
 const downloadBlob = (blob, fileName) => {
   if (!blob) return;
   const url = URL.createObjectURL(blob);
@@ -1258,6 +1273,15 @@ if (scrollTestMode.value) {
                   "
                 >
                   Export Docx Blob
+                </button>
+                <button
+                  class="dev-app__dropdown-item"
+                  type="button"
+                  :disabled="!superdoc?.diagnostics"
+                  title="Download the retained snapshot and log the same data to the console."
+                  @click="exportInteractionHistory"
+                >
+                  Export interaction history (JSON)
                 </button>
               </div>
             </div>

@@ -1,3 +1,4 @@
+import { beginInteraction, recordInteraction } from '../../internal/diagnostics/interaction-history.js';
 /**
  * v2-native `createSuperDocUI` controller.
  *
@@ -8693,7 +8694,7 @@ export function createSuperDocUI(options: SuperDocUIOptions): SuperDocUI {
     return readSelectionInfoFresh().then(() => undefined);
   };
 
-  const executeCommand = (id: string, payload?: unknown, context?: ViewportContext): CommandExecutionResult => {
+  const executeCommandInternal = (id: string, payload?: unknown, context?: ViewportContext): CommandExecutionResult => {
     pendingCommandSettlement = null;
     lastCommandSettlement = Promise.resolve(false);
     if (disposed) return false;
@@ -8861,6 +8862,37 @@ export function createSuperDocUI(options: SuperDocUIOptions): SuperDocUI {
   // ---------------------------------------------------------------------------
   // Format-painter state machine
   // ---------------------------------------------------------------------------
+
+  const executeCommand = (id: string, payload?: unknown, context?: ViewportContext): CommandExecutionResult => {
+    const actionId = beginInteraction(superdoc, 'command:started', () => ({
+      commandId: id,
+      selection: state.selection,
+    }));
+    let result: CommandExecutionResult;
+    try {
+      result = executeCommandInternal(id, payload, context);
+    } catch (error) {
+      recordInteraction(superdoc, 'command:settled', () => ({ actionId, commandId: id, outcome: 'threw' }));
+      throw error;
+    }
+    const settled = (value: CommandExecutionResult) =>
+      recordInteraction(superdoc, 'command:settled', () => ({
+        actionId,
+        commandId: id,
+        outcome: commandResultSucceeded(value) ? 'succeeded' : 'rejected',
+        result: value,
+      }));
+    // Observe the real settlement without replacing either return value or promise.
+    if (result === false) settled(result);
+    else {
+      try {
+        void lastCommandSettlement.then(settled, () => settled(false));
+      } catch {
+        /* Capture is optional. */
+      }
+    }
+    return result;
+  };
 
   const exitFormatPainter = (): void => {
     painterCaptureEpoch += 1;

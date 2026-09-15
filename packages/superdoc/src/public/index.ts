@@ -315,3 +315,11 @@ export type { ContextMenuSelectReadiness } from '../core/types/index.js';
 export type { FindReplaceConfig } from '../core/types/index.js';
 
 // BlankDOCX is handled via the import-then-export pattern at the top of this file.
+
+export type {
+  DiagnosticsConfig,
+  InteractionHistoryConfig,
+  InteractionHistoryEvent,
+  InteractionHistorySnapshot,
+  SuperDocDiagnostics,
+} from '../core/types/diagnostics.js';

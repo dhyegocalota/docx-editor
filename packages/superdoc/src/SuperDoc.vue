@@ -1,4 +1,5 @@
 <script setup>
+import { recordInteraction } from './internal/diagnostics/interaction-history.js';
 import '@superdoc/common/styles/common-styles.css';
 import { superdocIcons } from './icons.js';
 //prettier-ignore
@@ -1511,6 +1512,7 @@ const handleDocumentSelectionChange = () => {
 };
 
 const onV2SelectionChanged = ({ hasRangeSelection, snapshot } = {}) => {
+  recordInteraction(proxy.$superdoc, 'selection:changed', () => ({ hasRangeSelection, selection: snapshot }));
   v2HasRangeSelection.value = hasRangeSelection === true;
   v2SelectionSnapshot.value = hasRangeSelection === true ? (snapshot ?? null) : null;
   if (v2HasRangeSelection.value) {
@@ -1821,6 +1823,10 @@ const onV2RenderCleared = (payload) => {
 
 const onV2HostEvent = (document, event) => {
   if (!event) return;
+  recordInteraction(proxy.$superdoc, event.type, () => ({ ...event, documentId: document?.id ?? null }));
+  // Extension receipts are forwarded for diagnostics only; previews must not
+  // acquire editor-update or review side effects through this subscription.
+  if (event.type === 'mutation:committed' && event.origin === 'extension') return;
   const documentId = document?.id ?? null;
   if (event.type === 'collaboration:document-replaced') clearDocumentFieldContext(documentId);
   if (event.type === 'review-mutation:started') {

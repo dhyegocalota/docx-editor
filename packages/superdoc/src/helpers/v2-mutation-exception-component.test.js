@@ -7,6 +7,7 @@ import { DOCX } from '@superdoc/common';
 import { useSuperdocStore } from '../stores/superdoc-store.js';
 import { normalizeUiConfig } from '../core/config/normalize-ui-config.js';
 import SuperDoc from '../SuperDoc.vue';
+import { createInteractionHistory, closeInteractionHistory } from '../internal/diagnostics/interaction-history.js';
 
 vi.mock('../core/v2-integration/v2-integration.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -25,14 +26,22 @@ vi.mock('../core/v2-integration/v2-integration.js', async (importOriginal) => {
 
 const mounted = [];
 afterEach(() => {
-  for (const wrapper of mounted.splice(0)) wrapper.unmount();
+  for (const { wrapper, superdoc } of mounted.splice(0)) {
+    wrapper.unmount();
+    closeInteractionHistory(superdoc);
+  }
 });
 
-async function mountShell() {
+async function mountShell(history = { enabled: false }) {
   const pinia = createPinia();
   const store = useSuperdocStore(pinia);
   store.documents = [{ id: 'doc-a', type: DOCX, data: new Uint8Array(), editorMountNonce: 0 }];
-  const config = { modules: { comments: false }, ui: { comments: false }, documentMode: 'editing' };
+  const config = {
+    modules: { comments: false },
+    ui: { comments: false },
+    documentMode: 'editing',
+    diagnostics: { history },
+  };
   const superdoc = Object.assign(new EventEmitter(), {
     config,
     uiConfig: normalizeUiConfig(config),
@@ -41,6 +50,9 @@ async function mountShell() {
     users: [],
     colors: [],
   });
+  const diagnostics = createInteractionHistory(superdoc, config, () => 'test', document.createElement('div'));
+  const onEditorUpdate = vi.fn();
+  superdoc.on('editor-update', onEditorUpdate);
   const onException = vi.fn();
   superdoc.on('exception', onException);
   const wrapper = mount(SuperDoc, {
@@ -50,13 +62,13 @@ async function mountShell() {
       stubs: { SurfaceHost: true, FloatingComments: true, CommentDialog: true },
     },
   });
-  mounted.push(wrapper);
+  mounted.push({ wrapper, superdoc });
   await flushPromises();
   superdoc.emit('active-editor-change');
   await nextTick();
   const editor = wrapper.findComponent({ name: 'EditableInputFixture' });
   expect(editor.exists()).toBe(true);
-  return { wrapper, editor, onException };
+  return { wrapper, editor, onException, onEditorUpdate, diagnostics, superdoc };
 }
 
 const authorRejection = () => ({
@@ -143,4 +155,30 @@ describe('SuperDoc mutation exceptions', () => {
     expect(onException).toHaveBeenCalledTimes(1);
     expect(onException.mock.calls[0][0].code).toBe('author-required');
   });
+});
+
+describe('SuperDoc interaction history remains passive', () => {
+  it.each([true, false])(
+    'observes extension receipts without editor-update callbacks when enabled=%s',
+    async (enabled) => {
+      const { editor, onEditorUpdate, diagnostics, superdoc } = await mountShell({ enabled });
+      diagnostics.clear();
+      onEditorUpdate.mockClear();
+      for (const dryRun of [true, false]) {
+        editor.vm.$emit('v2-host-event', {
+          type: 'mutation:committed',
+          origin: 'extension',
+          receipt: { success: true, dryRun, txId: 'extension-receipt' },
+        });
+      }
+      await nextTick();
+      expect(onEditorUpdate).not.toHaveBeenCalled();
+      expect(diagnostics.getSnapshot().events).toHaveLength(enabled ? 2 : 0);
+      // Existing editing notifications still follow the command path.
+      editor.vm.$emit('v2-host-event', { type: 'mutation:committed', origin: 'command', receipt: { success: true } });
+      await nextTick();
+      expect(onEditorUpdate).toHaveBeenCalledTimes(1);
+      closeInteractionHistory(superdoc);
+    },
+  );
 });

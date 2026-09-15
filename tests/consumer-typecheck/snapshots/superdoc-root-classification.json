@@ -1,13 +1,13 @@
 {
   "generatedAt": "2026-09-02T00:00:00.000Z",
   "summary": {
-    "total": 281,
+    "total": 286,
     "byBucket": {
       "legacy-root": 3,
-      "supported-root": 278
+      "supported-root": 283
     },
     "byConfidence": {
-      "high": 233,
+      "high": 238,
       "medium": 48
     }
   },
@@ -3102,6 +3102,61 @@
       "inDcts": true,
       "inEsm": true,
       "inCjs": true
+    },
+    {
+      "name": "DiagnosticsConfig",
+      "bucket": "supported-root",
+      "rationale": "Typed browser Interaction History configuration and detached diagnostics export.",
+      "confidence": "high",
+      "source": "core/types",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "InteractionHistoryConfig",
+      "bucket": "supported-root",
+      "rationale": "Typed browser Interaction History configuration and detached diagnostics export.",
+      "confidence": "high",
+      "source": "core/types",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "InteractionHistoryEvent",
+      "bucket": "supported-root",
+      "rationale": "Typed browser Interaction History configuration and detached diagnostics export.",
+      "confidence": "high",
+      "source": "core/types",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "InteractionHistorySnapshot",
+      "bucket": "supported-root",
+      "rationale": "Typed browser Interaction History configuration and detached diagnostics export.",
+      "confidence": "high",
+      "source": "core/types",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
+    },
+    {
+      "name": "SuperDocDiagnostics",
+      "bucket": "supported-root",
+      "rationale": "Typed browser Interaction History configuration and detached diagnostics export.",
+      "confidence": "high",
+      "source": "core/types",
+      "inDts": true,
+      "inDcts": true,
+      "inEsm": false,
+      "inCjs": false
     }
   ]
 }

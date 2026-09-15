@@ -1,17 +1,17 @@
 # superdoc root export inventory (SD-3212 PR A0)
 
-Generated: 2026-09-12T20:21:13.295Z
+Generated: 2026-09-15T01:28:36.493Z
 Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 
 ## Counts
 
 | Source | Path | Count |
 |---|---|---|
-| types.import | `./dist/superdoc/src/public/index.d.ts` | 281 |
-| types.require | `./dist/superdoc/src/public/index.d.cts` | 281 |
+| types.import | `./dist/superdoc/src/public/index.d.ts` | 286 |
+| types.require | `./dist/superdoc/src/public/index.d.cts` | 286 |
 | import | `./dist/superdoc.es.js` | 10 |
 | require | `./dist/superdoc.cjs` | 10 |
-| **union** |  | **281** |
+| **union** |  | **286** |
 
 ## Divergences
 
@@ -19,7 +19,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 - types.require only (not in types.import): 0
 - ESM only (not in CJS): 0
 - CJS only (not in ESM): 0
-- typed but no runtime export (phantom risk): 271
+- typed but no runtime export (phantom risk): 276
 - runtime export but not typed (silent shadow on root): 0
 
 ### Type-only names (no runtime)
@@ -56,6 +56,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 - `ContextMenuSelectContext`
 - `ContextMenuSelectPayload`
 - `ContextMenuSelectReadiness`
+- `DiagnosticsConfig`
 - `DiffApplyEligibility`
 - `DiffApplyEligibilityBlocker`
 - `DiffApplyEligibilityBlockerCode`
@@ -104,6 +105,9 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 - `HyperlinksConfig`
 - `IntentSurfaceRequest`
 - `InteractionConfig`
+- `InteractionHistoryConfig`
+- `InteractionHistoryEvent`
+- `InteractionHistorySnapshot`
 - `Layout`
 - `LayoutEngineOptions`
 - `LayoutFragment`
@@ -161,6 +165,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 - `SuperDocDecorationProvider`
 - `SuperDocDiagnosticCode`
 - `SuperDocDiagnosticStage`
+- `SuperDocDiagnostics`
 - `SuperDocDisposableBag`
 - `SuperDocDocumentModeChangePayload`
 - `SuperDocEditorPayload`
@@ -318,7 +323,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `CommentsLayout` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `CommentsResponsiveConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `CommentsType` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
-| `Config` | ✓ | ✓ |   |   | 34 |   | 14 | 3 | 0 |
+| `Config` | ✓ | ✓ |   |   | 35 |   | 14 | 3 | 0 |
 | `ContentControlActiveChangePayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `ContentControlClickPayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `ContentControlRef` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
@@ -334,6 +339,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `ContextMenuSelectPayload` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `ContextMenuSelectReadiness` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `DOCX` | ✓ | ✓ | ✓ | ✓ | 1 |   | 383 | 73 | 0 |
+| `DiagnosticsConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DiffApplyEligibility` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DiffApplyEligibilityBlocker` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `DiffApplyEligibilityBlockerCode` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
@@ -383,6 +389,9 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `HyperlinksConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `IntentSurfaceRequest` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `InteractionConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `InteractionHistoryConfig` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `InteractionHistoryEvent` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
+| `InteractionHistorySnapshot` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `Layout` | ✓ | ✓ |   |   | 2 |   | 3 | 0 | 0 |
 | `LayoutEngineOptions` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `LayoutFragment` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
@@ -417,7 +426,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `SelectionInfo` | ✓ | ✓ |   |   | 1 |   | 1 | 0 | 0 |
 | `StoryLocator` | ✓ | ✓ |   |   | 1 |   | 4 | 0 | 0 |
 | `StructuredDocumentSource` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
-| `SuperDoc` | ✓ | ✓ | ✓ | ✓ | 33 |   | 290 | 44 | 0 |
+| `SuperDoc` | ✓ | ✓ | ✓ | ✓ | 34 |   | 291 | 44 | 0 |
 | `SuperDocActiveEditorExtensions` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocActiveEditorExtensionsCommands` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocActiveEditorExtensionsDiagnostics` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
@@ -442,6 +451,7 @@ Source: packed and installed `tests/consumer-typecheck/node_modules/superdoc`
 | `SuperDocDecorationProvider` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocDiagnosticCode` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocDiagnosticStage` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
+| `SuperDocDiagnostics` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `SuperDocDisposableBag` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |
 | `SuperDocDocumentModeChangePayload` | ✓ | ✓ |   |   | 2 |   | 0 | 0 | 0 |
 | `SuperDocEditorPayload` | ✓ | ✓ |   |   | 1 |   | 0 | 0 | 0 |

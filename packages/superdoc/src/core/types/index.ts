@@ -1,3 +1,4 @@
+import type { DiagnosticsConfig } from './diagnostics.js';
 // Public-contract type definitions for the `superdoc` package.
 //
 // This module is the canonical home for the shapes consumers see when they
@@ -4524,6 +4525,8 @@ export interface Config {
   onEditorUpdate?: (params: EditorUpdateEvent) => void;
   /** Callback after an Accept All or Reject All tracked-change decision. */
   onTrackedChangesBulkDecision?: (params: SuperDocTrackedChangesBulkDecisionPayload) => void;
+  /** Configure bounded in-memory Interaction History for browser debugging. */
+  diagnostics?: DiagnosticsConfig;
   /**
    * Callback when SuperDoc emits an `exception` event. The payload is a
    * union of runtime shapes (store init, restore failure, editor lifecycle,

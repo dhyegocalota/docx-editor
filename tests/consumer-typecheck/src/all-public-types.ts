@@ -24,6 +24,11 @@
  * scenarios then exercise this file to catch the actual any-collapses.
  */
 import type {
+  DiagnosticsConfig,
+  InteractionHistoryConfig,
+  InteractionHistoryEvent,
+  InteractionHistorySnapshot,
+  SuperDocDiagnostics,
   AwarenessState,
   AwarenessUser,
   BlockNavigationAddress,
@@ -575,3 +580,9 @@ const _real_ViewOptions: AssertNotAny<ViewOptions> = true;
 const _real_ViewingOptions: AssertNotAny<ViewingOptions> = true;
 const _real_ViewingTrackedChangesMode: AssertNotAny<ViewingTrackedChangesMode> = true;
 const _real_ViewingVisibilityConfig: AssertNotAny<ViewingVisibilityConfig> = true;
+
+const _real_DiagnosticsConfig: AssertNotAny<DiagnosticsConfig> = true;
+const _real_InteractionHistoryConfig: AssertNotAny<InteractionHistoryConfig> = true;
+const _real_InteractionHistoryEvent: AssertNotAny<InteractionHistoryEvent> = true;
+const _real_InteractionHistorySnapshot: AssertNotAny<InteractionHistorySnapshot> = true;
+const _real_SuperDocDiagnostics: AssertNotAny<SuperDocDiagnostics> = true;
