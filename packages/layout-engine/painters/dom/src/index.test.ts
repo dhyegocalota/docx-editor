@@ -5782,6 +5782,56 @@ describe('DomPainter', () => {
     expect(behindDocWatermark?.style.opacity).toBe('0.5');
   });
 
+  it('positions a page-relative VML picture watermark without adding the page margin twice', () => {
+    const watermarkBlock: FlowBlock = {
+      kind: 'image',
+      id: 'header-vml-picture-watermark',
+      src: 'data:image/png;base64,AAAA',
+      width: 128,
+      height: 64,
+      anchor: {
+        isAnchored: true,
+        hRelativeFrom: 'page',
+        alignH: 'right',
+        vRelativeFrom: 'margin',
+        alignV: 'top',
+        behindDoc: true,
+      },
+      wrap: { type: 'None' },
+      attrs: { vmlWatermark: true },
+    };
+    const watermarkMeasure: Measure = { kind: 'image', width: 128, height: 64 };
+    const watermarkFragment = {
+      kind: 'image' as const,
+      blockId: watermarkBlock.id,
+      x: 698.667,
+      y: 66.667,
+      width: 128,
+      height: 64,
+      isAnchored: true,
+      behindDoc: true,
+    };
+    const painter = createTestPainter({
+      blocks: [block, watermarkBlock],
+      measures: [measure, watermarkMeasure],
+      headerProvider: () => ({ fragments: [watermarkFragment], height: 80, offset: 48 }),
+    });
+
+    painter.paint(
+      {
+        ...layout,
+        pages: [{ ...layout.pages[0], number: 1, margins: { left: 96, right: 96, top: 96, bottom: 96 } }],
+      },
+      mount,
+    );
+
+    const watermark = mount.querySelector(
+      '[data-behind-doc-section="header"][data-block-id="header-vml-picture-watermark"]',
+    ) as HTMLElement | null;
+    expect(watermark?.style.left).toBe('698.667px');
+    expect(watermark?.style.top).toBe('114.667px');
+  });
+
   it('renders active header VML text watermarks at full preview opacity', () => {
     const watermarkBlock: FlowBlock = {
       kind: 'image',

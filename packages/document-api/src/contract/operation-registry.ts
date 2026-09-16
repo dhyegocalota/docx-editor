@@ -516,6 +516,15 @@ import type {
   HeaderFooterPartsMutationResult,
 } from '../header-footers/header-footers.types.js';
 import type {
+  WatermarksInsertInput,
+  WatermarksListQuery,
+  WatermarksListResult,
+  WatermarksRemoveInput,
+  WatermarksReplaceInput,
+  WatermarkMutationResult,
+  WatermarkRemoveResult,
+} from '../watermarks/watermarks.types.js';
+import type {
   ContentControlInfo,
   ContentControlMutationResult,
   ContentControlsListResult,
@@ -1162,6 +1171,11 @@ export interface OperationRegistry extends FormatInlineAliasOperationRegistry {
     options: MutationOptions;
     output: HeaderFooterPartsMutationResult;
   };
+  // --- watermarks.* ---
+  'watermarks.list': { input: WatermarksListQuery | undefined; options: never; output: WatermarksListResult };
+  'watermarks.insert': { input: WatermarksInsertInput; options: MutationOptions; output: WatermarkMutationResult };
+  'watermarks.replace': { input: WatermarksReplaceInput; options: MutationOptions; output: WatermarkMutationResult };
+  'watermarks.remove': { input: WatermarksRemoveInput; options: MutationOptions; output: WatermarkRemoveResult };
   // --- create.contentControl ---
   'create.contentControl': {
     input: CreateContentControlInput;

@@ -334,6 +334,11 @@ export function buildDispatchTable(api: DocumentApi): TypedDispatchTable {
     'headerFooters.parts.list': (input) => api.headerFooters.parts.list(input),
     'headerFooters.parts.create': (input, options) => api.headerFooters.parts.create(input, options),
     'headerFooters.parts.delete': (input, options) => api.headerFooters.parts.delete(input, options),
+    // --- watermarks.* ---
+    'watermarks.list': (input) => api.watermarks.list(input),
+    'watermarks.insert': (input, options) => api.watermarks.insert(input, options),
+    'watermarks.replace': (input, options) => api.watermarks.replace(input, options),
+    'watermarks.remove': (input, options) => api.watermarks.remove(input, options),
     // --- create.contentControl ---
     'create.contentControl': (input, options) => api.create.contentControl(input, options),
     // --- contentControls.* core CRUD + discovery ---

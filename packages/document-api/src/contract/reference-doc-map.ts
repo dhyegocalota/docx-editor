@@ -127,6 +127,11 @@ const GROUP_METADATA: Record<ReferenceGroupKey, { title: string; description: st
     description: 'Structure, references, and part lifecycle for document headers and footers.',
     pagePath: 'header-footers/index.mdx',
   },
+  watermarks: {
+    title: 'Watermarks',
+    description: 'Word-compatible text and picture watermark lifecycle and placement.',
+    pagePath: 'watermarks/index.mdx',
+  },
   contentControls: {
     title: 'Content Controls',
     description: 'Content control (SDT) discovery, mutation, typed controls, and Word compatibility.',

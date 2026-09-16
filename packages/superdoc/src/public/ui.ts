@@ -157,4 +157,8 @@ export type {
   ContentControlInfo,
   RichContentInsertInput,
   SDHtmlMarkdownSupportCheckResult,
+  PictureWatermarkInput,
+  TextWatermark,
+  WatermarkInfo,
+  WatermarkTarget,
 } from './ui/types.js';

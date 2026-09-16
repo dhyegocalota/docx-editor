@@ -1013,6 +1013,110 @@ const paragraphTargetSchema: JsonSchema = {
   oneOf: [paragraphAddressSchema, headingAddressSchema, listItemAddressSchema],
 };
 const sectionAddressSchema = ref('SectionAddress');
+const watermarkSlotTargetSchema = objectSchema(
+  {
+    kind: { const: 'headerFooterSlot' },
+    section: sectionAddressSchema,
+    headerFooterKind: { const: 'header' },
+    variant: { enum: ['default', 'first', 'even'] },
+  },
+  ['kind', 'section', 'headerFooterKind', 'variant'],
+);
+const watermarkTargetSchema: JsonSchema = {
+  oneOf: [objectSchema({ kind: { const: 'document' } }, ['kind']), watermarkSlotTargetSchema],
+};
+const watermarkAddressSchema = objectSchema(
+  { kind: { const: 'watermark' }, watermarkId: { type: 'string', minLength: 1 } },
+  ['kind', 'watermarkId'],
+);
+const watermarkHorizontalPlacementSchema = objectSchema(
+  {
+    relativeFrom: { enum: ['page', 'margin'] },
+    alignment: { enum: ['left', 'center', 'right'] },
+    offsetPt: { type: 'number' },
+  },
+  ['relativeFrom'],
+);
+const watermarkVerticalPlacementSchema = objectSchema(
+  {
+    relativeFrom: { enum: ['page', 'margin'] },
+    alignment: { enum: ['top', 'center', 'bottom'] },
+    offsetPt: { type: 'number' },
+  },
+  ['relativeFrom'],
+);
+const watermarkPlacementSchema = objectSchema({
+  widthPt: { type: 'number', exclusiveMinimum: 0 },
+  heightPt: { type: 'number', exclusiveMinimum: 0 },
+  rotationDegrees: { type: 'number' },
+  behindText: { type: 'boolean' },
+  horizontal: watermarkHorizontalPlacementSchema,
+  vertical: watermarkVerticalPlacementSchema,
+});
+const textWatermarkSchema = objectSchema(
+  {
+    kind: { const: 'text' },
+    text: { type: 'string', minLength: 1 },
+    fontFamily: { type: 'string', minLength: 1 },
+    fontSizePt: { oneOf: [{ const: 'auto' }, { type: 'number', exclusiveMinimum: 0 }] },
+    bold: { type: 'boolean' },
+    italic: { type: 'boolean' },
+    color: { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$' },
+    opacity: { type: 'number', minimum: 0, maximum: 1 },
+    orientation: { enum: ['horizontal', 'diagonal'] },
+    placement: watermarkPlacementSchema,
+  },
+  ['kind', 'text'],
+);
+const pictureWatermarkInputSchema = objectSchema(
+  {
+    kind: { const: 'picture' },
+    src: { type: 'string', minLength: 1 },
+    scalePercent: { enum: ['auto', 50, 100, 150, 200, 500] },
+    widthPt: { type: 'number', exclusiveMinimum: 0 },
+    heightPt: { type: 'number', exclusiveMinimum: 0 },
+    lockAspectRatio: { type: 'boolean' },
+    washout: { type: 'boolean' },
+    opacity: { type: 'number', minimum: 0, maximum: 1 },
+    placement: watermarkPlacementSchema,
+  },
+  ['kind', 'src'],
+);
+const pictureWatermarkInfoSchema = objectSchema(
+  {
+    kind: { const: 'picture' },
+    mediaPartPath: { type: 'string' },
+    contentType: { type: 'string' },
+    scalePercent: { enum: ['auto', 50, 100, 150, 200, 500] },
+    widthPt: { type: 'number', exclusiveMinimum: 0 },
+    heightPt: { type: 'number', exclusiveMinimum: 0 },
+    lockAspectRatio: { type: 'boolean' },
+    washout: { type: 'boolean' },
+    opacity: { type: 'number', minimum: 0, maximum: 1 },
+    placement: watermarkPlacementSchema,
+  },
+  [
+    'kind',
+    'mediaPartPath',
+    'contentType',
+    'scalePercent',
+    'widthPt',
+    'heightPt',
+    'lockAspectRatio',
+    'washout',
+    'opacity',
+    'placement',
+  ],
+);
+const watermarkInfoSchema = objectSchema(
+  {
+    watermarkId: { type: 'string' },
+    owner: objectSchema({ refId: { type: 'string' }, partPath: { type: 'string' } }, ['refId', 'partPath']),
+    effectiveIn: arraySchema(watermarkSlotTargetSchema),
+    watermark: { oneOf: [textWatermarkSchema, pictureWatermarkInfoSchema] },
+  },
+  ['watermarkId', 'owner', 'effectiveIn', 'watermark'],
+);
 const inlineNodeAddressSchema = ref('InlineNodeAddress');
 const nodeAddressSchema = ref('NodeAddress');
 const commentAddressSchema = ref('CommentAddress');
@@ -9310,6 +9414,80 @@ const operationSchemas: Record<OperationId, OperationSchemaSet> = {
       },
       ['success', 'failure'],
     ),
+  },
+  // =========================================================================
+  // watermarks.*
+  // =========================================================================
+  'watermarks.list': {
+    input: objectSchema({
+      target: watermarkTargetSchema,
+      limit: { type: 'integer', minimum: 1 },
+      offset: { type: 'integer', minimum: 0 },
+    }),
+    output: discoveryResultSchema(watermarkInfoSchema),
+  },
+  'watermarks.insert': {
+    input: objectSchema(
+      { target: watermarkTargetSchema, watermark: { oneOf: [textWatermarkSchema, pictureWatermarkInputSchema] } },
+      ['target', 'watermark'],
+    ),
+    output: {
+      oneOf: [
+        objectSchema(
+          { success: { const: true }, watermark: watermarkInfoSchema, watermarks: arraySchema(watermarkInfoSchema) },
+          ['success', 'watermark'],
+        ),
+        objectSchema({ success: { const: false }, failure: receiptFailureSchemaFor('watermarks.insert') }, [
+          'success',
+          'failure',
+        ]),
+      ],
+    },
+    success: objectSchema(
+      { success: { const: true }, watermark: watermarkInfoSchema, watermarks: arraySchema(watermarkInfoSchema) },
+      ['success', 'watermark'],
+    ),
+    failure: objectSchema({ success: { const: false }, failure: receiptFailureSchemaFor('watermarks.insert') }, [
+      'success',
+      'failure',
+    ]),
+  },
+  'watermarks.replace': {
+    input: objectSchema(
+      { target: watermarkAddressSchema, watermark: { oneOf: [textWatermarkSchema, pictureWatermarkInputSchema] } },
+      ['target', 'watermark'],
+    ),
+    output: {
+      oneOf: [
+        objectSchema({ success: { const: true }, watermark: watermarkInfoSchema }, ['success', 'watermark']),
+        objectSchema({ success: { const: false }, failure: receiptFailureSchemaFor('watermarks.replace') }, [
+          'success',
+          'failure',
+        ]),
+      ],
+    },
+    success: objectSchema({ success: { const: true }, watermark: watermarkInfoSchema }, ['success', 'watermark']),
+    failure: objectSchema({ success: { const: false }, failure: receiptFailureSchemaFor('watermarks.replace') }, [
+      'success',
+      'failure',
+    ]),
+  },
+  'watermarks.remove': {
+    input: objectSchema({ target: watermarkAddressSchema }, ['target']),
+    output: {
+      oneOf: [
+        objectSchema({ success: { const: true }, watermarkId: { type: 'string' } }, ['success', 'watermarkId']),
+        objectSchema({ success: { const: false }, failure: receiptFailureSchemaFor('watermarks.remove') }, [
+          'success',
+          'failure',
+        ]),
+      ],
+    },
+    success: objectSchema({ success: { const: true }, watermarkId: { type: 'string' } }, ['success', 'watermarkId']),
+    failure: objectSchema({ success: { const: false }, failure: receiptFailureSchemaFor('watermarks.remove') }, [
+      'success',
+      'failure',
+    ]),
   },
   // =========================================================================
   // Content Controls (SD-2070): schemas

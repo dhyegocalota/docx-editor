@@ -527,6 +527,11 @@ const hashRuns = (block: FlowBlock, capabilities?: FontMeasureCapabilities): str
   // drawings take the same hash through hashNonParagraphCellBlock above.
   if (block.kind === 'drawing') return `${block.id}:${hashDrawingBlock(block, capabilities)}`;
 
+  // Top-level images retain their block ids across source and geometry
+  // replacements. Hash the visual payload so a refreshed header/footer cannot
+  // pair the new image block with the previous image's cached fragments.
+  if (block.kind === 'image') return `${block.id}:image:${hashImageLikeBlock(block)}`;
+
   if (block.kind !== 'paragraph') return block.id;
   const trackedMode =
     (block.attrs && 'trackedChangesMode' in block.attrs && block.attrs.trackedChangesMode) || 'review';

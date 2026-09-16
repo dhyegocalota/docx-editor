@@ -2338,6 +2338,7 @@ export class DomPainter {
       );
       this.applyHeaderFooterTextWatermarkPreviewOpacity(fragEl, data.isActiveHeaderFooter === true);
       const isPageRelative = this.isPageRelativeAnchoredFragment(fragment, resolvedItem, kind);
+      const isPageRelativeX = this.isPageRelativeHorizontalAnchoredFragment(fragment, resolvedItem, kind);
 
       let pageY: number;
       if (isPageRelative && kind === 'footer') {
@@ -2351,7 +2352,7 @@ export class DomPainter {
       }
 
       fragEl.style.top = `${pageY}px`;
-      fragEl.style.left = `${isPageRelative ? fragment.x : marginLeft + fragment.x}px`;
+      fragEl.style.left = `${isPageRelativeX ? fragment.x : marginLeft + fragment.x}px`;
       fragEl.style.zIndex = '0'; // Same level as page, but inserted first so renders behind
       fragEl.dataset.behindDocSection = kind; // Track for cleanup on re-render
       // Insert at beginning of page so it renders behind body content due to DOM order

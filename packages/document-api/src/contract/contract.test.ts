@@ -1406,6 +1406,7 @@ describe('document-api contract catalog', () => {
       'images',
       'hyperlinks',
       'headerFooters',
+      'watermarks',
       'contentControls',
       'bookmarks',
       'footnotes',

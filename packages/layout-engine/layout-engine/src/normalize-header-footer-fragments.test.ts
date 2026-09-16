@@ -186,6 +186,76 @@ describe('normalizeFragmentsForRegion', () => {
   });
 
   describe('margin-relative anchors in header', () => {
+    it('resolves a VML text watermark against the physical page margins', () => {
+      const block: FlowBlock = {
+        kind: 'image',
+        id: 'text-watermark',
+        src: 'data:image/svg+xml;base64,PHN2Zy8+',
+        width: 528,
+        height: 448,
+        attrs: { vmlWatermark: true, vmlTextWatermark: true },
+        anchor: {
+          isAnchored: true,
+          hRelativeFrom: 'margin',
+          alignH: 'center',
+          offsetH: 24,
+          vRelativeFrom: 'page',
+          alignV: 'center',
+          offsetV: -16,
+          behindDoc: true,
+        },
+        wrap: { type: 'None' },
+      };
+      const fragment = makeAnchoredImageFragment(block.id, 288, 448);
+      fragment.x = 48;
+      (fragment as { width?: number }).width = 528;
+
+      normalizeFragmentsForRegion([{ number: 1, fragments: [fragment] }], [block], [], 'header', {
+        width: 624,
+        pageWidth: 816,
+        pageHeight: 1056,
+        margins: { left: 96, right: 96, top: 96, bottom: 96, header: 48, footer: 48 },
+      });
+
+      expect(fragment.x).toBe(72);
+      expect(fragment.y).toBe(288);
+    });
+
+    it('resolves a VML picture watermark against the physical page and body margin', () => {
+      const block: FlowBlock = {
+        kind: 'image',
+        id: 'picture-watermark',
+        src: 'data:image/png;base64,AAAA',
+        width: 128,
+        height: 64,
+        attrs: { vmlWatermark: true },
+        anchor: {
+          isAnchored: true,
+          hRelativeFrom: 'page',
+          alignH: 'right',
+          offsetH: -10.667,
+          vRelativeFrom: 'margin',
+          alignV: 'top',
+          offsetV: 18.667,
+          behindDoc: true,
+        },
+        wrap: { type: 'None' },
+      };
+      const fragment = makeAnchoredImageFragment(block.id, 48, 64);
+      fragment.x = 592;
+      (fragment as { width?: number }).width = 128;
+
+      normalizeFragmentsForRegion([{ number: 1, fragments: [fragment] }], [block], [], 'header', {
+        width: 624,
+        pageWidth: 816,
+        pageHeight: 1056,
+        margins: { left: 96, right: 96, top: 96, bottom: 96, header: 48, footer: 48 },
+      });
+
+      expect(fragment.x).toBeCloseTo(698.667, 3);
+      expect(fragment.y).toBeCloseTo(66.667, 3);
+    });
+
     it.each([
       { top: 96, header: 48, offset: 0, align: 'top', height: 892.8, expected: 48 },
       { top: 96, header: 24, offset: 0, align: 'top', height: 892.8, expected: 72 },

@@ -86,6 +86,50 @@ function isPageRelativeBlock(block: FlowBlock): block is ImageBlock | DrawingBlo
   return (block.kind === 'image' || block.kind === 'drawing') && block.anchor?.vRelativeFrom === 'page';
 }
 
+function isHeaderVmlWatermark(block: FlowBlock): block is ImageBlock {
+  return block.kind === 'image' && block.attrs?.vmlWatermark === true && block.anchor?.isAnchored === true;
+}
+
+function normalizeHeaderVmlWatermarkFragment(
+  fragment: Extract<Fragment, { kind: 'image' }>,
+  block: ImageBlock,
+  pageNumber: number,
+  constraints: RegionConstraints,
+): void {
+  const pageWidth = constraints.pageWidth;
+  const pageHeight = constraints.pageHeight;
+  const width = block.width ?? fragment.width ?? 0;
+  const height = block.height ?? fragment.height ?? 0;
+  if (
+    typeof pageWidth !== 'number' ||
+    !Number.isFinite(pageWidth) ||
+    typeof pageHeight !== 'number' ||
+    !Number.isFinite(pageHeight)
+  ) {
+    return;
+  }
+
+  const physicalX = resolveAnchoredGraphicX(
+    block.anchor!,
+    0,
+    { width: constraints.width ?? pageWidth, gap: 0, count: 1 },
+    width,
+    constraints.margins,
+    pageWidth,
+    { pageNumber },
+  );
+  fragment.x = block.anchor?.hRelativeFrom === 'page' ? physicalX : physicalX - (constraints.margins?.left ?? 0);
+  const physicalY = resolveAnchoredGraphicY({
+    anchor: block.anchor,
+    objectHeight: height,
+    contentTop: constraints.margins?.top ?? 0,
+    contentBottom: pageHeight - (constraints.margins?.bottom ?? 0),
+    pageBottomMargin: constraints.margins?.bottom ?? 0,
+    pageNumber,
+  });
+  fragment.y = block.anchor?.vRelativeFrom === 'page' ? physicalY : physicalY - (constraints.margins?.header ?? 0);
+}
+
 function normalizeFloatingFooterTableFragment(
   fragment: Extract<Fragment, { kind: 'table' }>,
   block: TableBlock,
@@ -274,6 +318,11 @@ export function normalizeFragmentsForRegion(
       }
 
       if (!isAnchoredFragment(fragment)) continue;
+
+      if (kind === 'header' && fragment.kind === 'image' && isHeaderVmlWatermark(block)) {
+        normalizeHeaderVmlWatermarkFragment(fragment, block, page.number, constraints);
+        continue;
+      }
 
       if (kind === 'header' && isHeaderMarginContentBlock(block)) {
         if (block.wrap?.type === 'None') {

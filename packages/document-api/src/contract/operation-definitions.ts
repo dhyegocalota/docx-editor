@@ -51,6 +51,7 @@ export type ReferenceGroupKey =
   | 'images'
   | 'hyperlinks'
   | 'headerFooters'
+  | 'watermarks'
   | 'contentControls'
   | 'bookmarks'
   | 'footnotes'
@@ -4807,6 +4808,68 @@ export const OPERATION_DEFINITIONS = {
     }),
     referenceDocPath: 'header-footers/parts/delete.mdx',
     referenceGroup: 'headerFooters',
+  },
+  // =========================================================================
+  // watermarks.*
+  // =========================================================================
+  'watermarks.list': {
+    memberPath: 'watermarks.list',
+    description: v2BackedOnlyDescription(
+      'List Word-compatible text and picture watermarks and their effective header scopes.',
+    ),
+    expectedResult:
+      'Returns a paginated WatermarksListResult with stable watermark identities and Word placement settings.',
+    requiresDocumentContext: true,
+    metadata: readOperation({ throws: ['INVALID_INPUT', 'INVALID_TARGET', 'CAPABILITY_UNAVAILABLE'] }),
+    referenceDocPath: 'watermarks/list.mdx',
+    referenceGroup: 'watermarks',
+  },
+  'watermarks.insert': {
+    memberPath: 'watermarks.insert',
+    description: v2BackedOnlyDescription('Insert a Word-compatible text or picture watermark into a header scope.'),
+    expectedResult: 'Returns the inserted watermark, including its stable identity and effective header scopes.',
+    requiresDocumentContext: true,
+    metadata: mutationOperation({
+      idempotency: 'non-idempotent',
+      supportsDryRun: true,
+      supportsTrackedMode: false,
+      possibleFailureCodes: ['INVALID_TARGET', 'PRECONDITION_FAILED'],
+      throws: ['INVALID_INPUT', 'INVALID_TARGET', 'CAPABILITY_UNAVAILABLE', 'INTERNAL_ERROR'],
+    }),
+    referenceDocPath: 'watermarks/insert.mdx',
+    referenceGroup: 'watermarks',
+  },
+  'watermarks.replace': {
+    memberPath: 'watermarks.replace',
+    description: v2BackedOnlyDescription(
+      'Replace an existing watermark while retaining its stable identity and owner scope.',
+    ),
+    expectedResult: 'Returns the replaced watermark, or TARGET_NOT_FOUND when its identity is stale.',
+    requiresDocumentContext: true,
+    metadata: mutationOperation({
+      idempotency: 'conditional',
+      supportsDryRun: true,
+      supportsTrackedMode: false,
+      possibleFailureCodes: ['TARGET_NOT_FOUND', 'PRECONDITION_FAILED'],
+      throws: ['INVALID_INPUT', 'INVALID_TARGET', 'CAPABILITY_UNAVAILABLE', 'INTERNAL_ERROR'],
+    }),
+    referenceDocPath: 'watermarks/replace.mdx',
+    referenceGroup: 'watermarks',
+  },
+  'watermarks.remove': {
+    memberPath: 'watermarks.remove',
+    description: v2BackedOnlyDescription('Remove a watermark without removing unrelated header content.'),
+    expectedResult: 'Returns the removed watermark identity, or TARGET_NOT_FOUND when its identity is stale.',
+    requiresDocumentContext: true,
+    metadata: mutationOperation({
+      idempotency: 'conditional',
+      supportsDryRun: true,
+      supportsTrackedMode: false,
+      possibleFailureCodes: ['TARGET_NOT_FOUND', 'PRECONDITION_FAILED'],
+      throws: ['INVALID_INPUT', 'INVALID_TARGET', 'CAPABILITY_UNAVAILABLE', 'INTERNAL_ERROR'],
+    }),
+    referenceDocPath: 'watermarks/remove.mdx',
+    referenceGroup: 'watermarks',
   },
   // =========================================================================
   // Content Controls (SD-2070)

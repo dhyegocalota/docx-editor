@@ -468,6 +468,26 @@ describe('MeasureCache', () => {
     });
   });
 
+  describe('top-level image caching', () => {
+    it('invalidates cache when image geometry changes under a stable block id', () => {
+      const before = imageBlock('watermark-1', 'data:image/svg+xml;base64,PHN2Zw==', 528, 448);
+      const after = imageBlock('watermark-1', 'data:image/png;base64,iVBORw0KGgo=', 128, 64);
+
+      cache.set(before, 624, 96, { totalHeight: 448 });
+
+      expect(cache.get(after, 624, 96)).toBeUndefined();
+    });
+
+    it('reuses cache when the image payload is unchanged', () => {
+      const first = imageBlock('watermark-1', 'data:image/png;base64,iVBORw0KGgo=', 128, 64);
+      const equivalent = imageBlock('watermark-1', 'data:image/png;base64,iVBORw0KGgo=', 128, 64);
+
+      cache.set(first, 624, 96, { totalHeight: 64 });
+
+      expect(cache.get(equivalent, 624, 96)).toEqual({ totalHeight: 64 });
+    });
+  });
+
   describe('table block caching', () => {
     it('invalidates cache when an inline in-cell image is resized', () => {
       // A cell paragraph whose only run is an inline image. Resizing that image

@@ -46,6 +46,10 @@ export type {
   ContentControlInfo,
   RichContentInsertInput,
   SDHtmlMarkdownSupportCheckResult,
+  PictureWatermarkInput,
+  TextWatermark,
+  WatermarkInfo,
+  WatermarkTarget,
 } from '@superdoc/document-api';
 
 // Public style-catalogue shapes (`styles.getCatalog`) re-surfaced through

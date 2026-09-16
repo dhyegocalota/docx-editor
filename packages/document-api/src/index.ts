@@ -36,6 +36,8 @@ export type { SelectionApi, SelectionAdapter, SelectionCurrentInput, SelectionIn
 export { executeSelectionCurrent } from './selection/selection.js';
 export type { HeaderFootersAdapter, HeaderFootersApi } from './header-footers/header-footers.js';
 export * from './header-footers/header-footers.types.js';
+export type { WatermarksAdapter, WatermarksApi } from './watermarks/watermarks.js';
+export * from './watermarks/watermarks.types.js';
 export type { ClearContentAdapter, ClearContentInput } from './clear-content/clear-content.js';
 export type {
   MarkdownToFragmentInput,
@@ -550,6 +552,23 @@ import {
   executeHeaderFootersPartsCreate,
   executeHeaderFootersPartsDelete,
 } from './header-footers/header-footers.js';
+import type {
+  WatermarksAdapter,
+  WatermarksApi,
+  WatermarksInsertInput,
+  WatermarksListQuery,
+  WatermarksListResult,
+  WatermarksRemoveInput,
+  WatermarksReplaceInput,
+  WatermarkMutationResult,
+  WatermarkRemoveResult,
+} from './watermarks/watermarks.js';
+import {
+  executeWatermarksInsert,
+  executeWatermarksList,
+  executeWatermarksRemove,
+  executeWatermarksReplace,
+} from './watermarks/watermarks.js';
 import type {
   CreateSectionBreakInput,
   CreateSectionBreakResult,
@@ -1961,6 +1980,10 @@ export interface DocumentApi {
    */
   headerFooters: HeaderFootersApi;
   /**
+   * Word-compatible text and picture watermark lifecycle operations.
+   */
+  watermarks: WatermarksApi;
+  /**
    * Content control (SDT) discovery, mutation, and typed-control operations.
    */
   contentControls: ContentControlsApi;
@@ -2106,6 +2129,7 @@ export interface DocumentApiAdapters {
   images: ImagesAdapter & CreateImageAdapter;
   hyperlinks: HyperlinksAdapter;
   headerFooters: HeaderFootersAdapter;
+  watermarks?: WatermarksAdapter;
   contentControls: ContentControlsAdapter & ContentControlsCreateAdapter;
   bookmarks?: BookmarksAdapter;
   footnotes?: FootnotesAdapter;
@@ -2263,6 +2287,7 @@ const ADAPTER_GATED_PREFIXES = [
   'citations',
   'authorities',
   'export',
+  'watermarks',
 ] as const;
 export function createDocumentApi(adapters: DocumentApiAdapters): DocumentApi {
   const rawCapFn = () => executeCapabilities(adapters.capabilities);
@@ -3233,6 +3258,20 @@ export function createDocumentApi(adapters: DocumentApiAdapters): DocumentApi {
         delete(input: HeaderFootersPartsDeleteInput, options?: MutationOptions): HeaderFooterPartsMutationResult {
           return executeHeaderFootersPartsDelete(adapters.headerFooters, input, options);
         },
+      },
+    },
+    watermarks: {
+      list(query?: WatermarksListQuery): WatermarksListResult {
+        return executeWatermarksList(requireAdapter(adapters.watermarks, 'watermarks'), query);
+      },
+      insert(input: WatermarksInsertInput, options?: MutationOptions): WatermarkMutationResult {
+        return executeWatermarksInsert(requireAdapter(adapters.watermarks, 'watermarks'), input, options);
+      },
+      replace(input: WatermarksReplaceInput, options?: MutationOptions): WatermarkMutationResult {
+        return executeWatermarksReplace(requireAdapter(adapters.watermarks, 'watermarks'), input, options);
+      },
+      remove(input: WatermarksRemoveInput, options?: MutationOptions): WatermarkRemoveResult {
+        return executeWatermarksRemove(requireAdapter(adapters.watermarks, 'watermarks'), input, options);
       },
     },
     contentControls: {
