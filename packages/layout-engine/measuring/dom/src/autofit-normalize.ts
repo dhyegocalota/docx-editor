@@ -11,6 +11,27 @@ import type {
 const TWIPS_PER_PX = 15;
 /** Authored/skipped grid columns at or below this width are treated as import placeholders. */
 const PLACEHOLDER_COLUMN_MAX_WIDTH = 1;
+/**
+ * Grid columns at or below this width are treated as import placeholders on AutoFit tables.
+ *
+ * Why this constant exists:
+ * - The `docx` npm package defaults `columnWidths` to a 100 twip (6.67px) grid column and
+ *   carries the widths the author asked for on `w:tcW`
+ * - Word resolves AutoFit columns from `tcW` whatever the grid holds, so those documents
+ *   render correctly there and collapse to one character per line here
+ *
+ * Why 8px was chosen:
+ * - Above the 6.67px the generators emit, so the common case is covered
+ * - The same bar applies to what the cells ask for, so a table whose `tcW` is also inside
+ *   placeholder range keeps its grid. A spacer table of empty 3px columns asking for 4px
+ *   through `tcW` is authored geometry, not a placeholder, and must not be rewritten
+ * - A generator emitting a wider placeholder is not covered. The general rule is that
+ *   `tcW` overrides the grid outright, which is a larger change than this threshold
+ *
+ * The row comparison carries the same 0.5px slack the grid comparisons in this file use:
+ * one twip is 0.067px, so an exact `>` would turn the decision on a rounding artifact.
+ */
+const DEGENERATE_AUTOFIT_GRID_COLUMN_MAX_WIDTH = 8;
 
 /**
  * Narrow OOXML measurement shape used by normalization.
@@ -176,10 +197,17 @@ export function buildAutoFitWorkingGridInput(
     return normalized.row;
   });
   const occupiedGridColumnCount = determineGridColumnCount(0, rows);
-  const preferredColumnWidths = trimTrailingUnoccupiedPlaceholderColumns(
+  const trimmedPreferredColumnWidths = trimTrailingUnoccupiedPlaceholderColumns(
     rawPreferredColumnWidths,
     occupiedGridColumnCount,
   );
+  const preferredColumnWidths = isDegenerateAutoFitGrid({
+    layoutMode,
+    preferredColumnWidths: trimmedPreferredColumnWidths,
+    rows,
+  })
+    ? []
+    : trimmedPreferredColumnWidths;
   const gridColumnCount = determineGridColumnCount(preferredColumnWidths.length, rows);
   const preserveAuthoredGrid = shouldPreserveAuthoredGrid({
     layoutMode,
@@ -297,6 +325,22 @@ function shouldPreserveAutoGrid(args: {
   }
   if (!hasNonUniformGrid(preferredColumnWidths)) return false;
   return true;
+}
+
+function isDegenerateAutoFitGrid(args: {
+  layoutMode: AutoFitLayoutMode;
+  preferredColumnWidths: number[];
+  rows: WorkingTableRowInput[];
+}): boolean {
+  const { layoutMode, preferredColumnWidths, rows } = args;
+  if (layoutMode !== 'autofit') return false;
+  if (preferredColumnWidths.length === 0) return false;
+  if (!preferredColumnWidths.every((width) => width <= DEGENERATE_AUTOFIT_GRID_COLUMN_MAX_WIDTH)) return false;
+
+  const rowPreferredWidth = deriveFullySpecifiedRowPreferredWidth(rows);
+  if (rowPreferredWidth == null) return false;
+  if (rowPreferredWidth <= sumWidths(preferredColumnWidths) + 0.5) return false;
+  return rowPreferredWidth > preferredColumnWidths.length * DEGENERATE_AUTOFIT_GRID_COLUMN_MAX_WIDTH;
 }
 
 function hasCompleteAuthoredGridCoverage(rows: WorkingTableRowInput[], gridColumnCount: number): boolean {

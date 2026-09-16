@@ -431,6 +431,121 @@ describe('buildAutoFitWorkingGridInput', () => {
     expect(result.autoGridWidthBudget).toBeUndefined();
   });
 
+  it('drops a degenerate tblW auto grid when fully specified tcW widths are wider', () => {
+    const placeholderColumnWidthPx = 100 / 15;
+    const block = createTableBlock({
+      attrs: {
+        tableWidth: { value: 100, type: 'auto' },
+      },
+      columnWidths: [placeholderColumnWidthPx, placeholderColumnWidthPx],
+      rows: [
+        {
+          id: 'row-1',
+          cells: [
+            { id: 'cell-1', attrs: { tableCellProperties: { cellWidth: { value: 3000, type: 'dxa' } } } },
+            { id: 'cell-2', attrs: { tableCellProperties: { cellWidth: { value: 3000, type: 'dxa' } } } },
+          ],
+        },
+      ],
+    });
+
+    const result = buildAutoFitWorkingGridInput(block, { maxWidth: 624 });
+
+    expect(result.preferredColumnWidths).toEqual([]);
+    expect(result.gridColumnCount).toBe(2);
+    expect(result.stableAutoGrid).toBeUndefined();
+    expect(result.autoGridWidthBudget).toBeUndefined();
+  });
+
+  it('keeps a degenerate tblW auto grid when cells do not carry tcW widths', () => {
+    const placeholderColumnWidthPx = 100 / 15;
+    const block = createTableBlock({
+      attrs: {
+        tableWidth: { value: 100, type: 'auto' },
+      },
+      columnWidths: [placeholderColumnWidthPx, placeholderColumnWidthPx],
+      rows: [
+        {
+          id: 'row-1',
+          cells: [{ id: 'cell-1' }, { id: 'cell-2' }],
+        },
+      ],
+    });
+
+    const result = buildAutoFitWorkingGridInput(block, { maxWidth: 624 });
+
+    expect(result.preferredColumnWidths).toEqual([placeholderColumnWidthPx, placeholderColumnWidthPx]);
+  });
+
+  it('keeps a degenerate grid when the cells ask for placeholder-range widths too', () => {
+    const block = createTableBlock({
+      attrs: {
+        tableWidth: { value: 100, type: 'auto' },
+      },
+      columnWidths: [3, 3],
+      rows: [
+        {
+          id: 'row-1',
+          cells: [
+            { id: 'cell-1', attrs: { tableCellProperties: { cellWidth: { value: 60, type: 'dxa' } } } },
+            { id: 'cell-2', attrs: { tableCellProperties: { cellWidth: { value: 60, type: 'dxa' } } } },
+          ],
+        },
+      ],
+    });
+
+    const result = buildAutoFitWorkingGridInput(block, { maxWidth: 624 });
+
+    expect(result.preferredColumnWidths).toEqual([3, 3]);
+  });
+
+  it('keeps a degenerate grid when tcW exceeds it by rounding slack', () => {
+    const placeholderColumnWidthPx = 100 / 15;
+    const block = createTableBlock({
+      attrs: {
+        tableWidth: { value: 100, type: 'auto' },
+      },
+      columnWidths: [placeholderColumnWidthPx, placeholderColumnWidthPx],
+      rows: [
+        {
+          id: 'row-1',
+          cells: [
+            { id: 'cell-1', attrs: { tableCellProperties: { cellWidth: { value: 100, type: 'dxa' } } } },
+            { id: 'cell-2', attrs: { tableCellProperties: { cellWidth: { value: 101, type: 'dxa' } } } },
+          ],
+        },
+      ],
+    });
+
+    const result = buildAutoFitWorkingGridInput(block, { maxWidth: 624 });
+
+    expect(result.preferredColumnWidths).toEqual([placeholderColumnWidthPx, placeholderColumnWidthPx]);
+  });
+
+  it('keeps a degenerate grid on fixed-layout tables', () => {
+    const placeholderColumnWidthPx = 100 / 15;
+    const block = createTableBlock({
+      attrs: {
+        tableLayout: 'fixed',
+        tableWidth: { value: 100, type: 'auto' },
+      },
+      columnWidths: [placeholderColumnWidthPx, placeholderColumnWidthPx],
+      rows: [
+        {
+          id: 'row-1',
+          cells: [
+            { id: 'cell-1', attrs: { tableCellProperties: { cellWidth: { value: 3000, type: 'dxa' } } } },
+            { id: 'cell-2', attrs: { tableCellProperties: { cellWidth: { value: 3000, type: 'dxa' } } } },
+          ],
+        },
+      ],
+    });
+
+    const result = buildAutoFitWorkingGridInput(block, { maxWidth: 624 });
+
+    expect(result.preferredColumnWidths).toEqual([placeholderColumnWidthPx, placeholderColumnWidthPx]);
+  });
+
   it('does not mark incomplete tblW auto grids as preferred AutoFit geometry', () => {
     const block = createTableBlock({
       attrs: {

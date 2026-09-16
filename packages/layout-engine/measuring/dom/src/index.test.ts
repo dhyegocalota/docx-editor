@@ -6556,6 +6556,101 @@ describe('measureBlock', () => {
       expect(measure.columnWidths[3]).toBeGreaterThan(measure.columnWidths[2]);
     });
 
+    it('uses tcW widths for tblW auto tables when the authored grid is a degenerate placeholder', async () => {
+      const PLACEHOLDER_GRID_COLUMN_TWIPS = 100;
+      const PREFERRED_CELL_WIDTH_TWIPS = 3000;
+      const TWIPS_PER_PX = 15;
+      const paragraph = (id: string, text: string): FlowBlock => ({
+        kind: 'paragraph',
+        id,
+        runs: [{ text, fontFamily: 'Arial', fontSize: 12 }],
+      });
+      const cell = (id: string, text: string) => ({
+        id,
+        blocks: [paragraph(`${id}-paragraph`, text)],
+        attrs: {
+          tableCellProperties: {
+            cellWidth: { value: PREFERRED_CELL_WIDTH_TWIPS, type: 'dxa' },
+          },
+        },
+      });
+      const block: FlowBlock = {
+        kind: 'table',
+        id: 'table-autofit-placeholder-grid',
+        attrs: {
+          tableWidth: { value: PLACEHOLDER_GRID_COLUMN_TWIPS, type: 'auto' },
+        },
+        rows: [
+          { id: 'row-0', cells: [cell('cell-0-0', 'Service'), cell('cell-0-1', 'Monthly fee')] },
+          { id: 'row-1', cells: [cell('cell-1-0', 'Hosting'), cell('cell-1-1', '$1,200')] },
+          { id: 'row-2', cells: [cell('cell-2-0', 'Support'), cell('cell-2-1', '$800')] },
+        ],
+        columnWidths: [PLACEHOLDER_GRID_COLUMN_TWIPS / TWIPS_PER_PX, PLACEHOLDER_GRID_COLUMN_TWIPS / TWIPS_PER_PX],
+      };
+
+      const measure = await measureBlock(block, { maxWidth: 624 });
+
+      expect(measure.kind).toBe('table');
+      if (measure.kind !== 'table') throw new Error('expected table measure');
+      const preferredCellWidthPx = PREFERRED_CELL_WIDTH_TWIPS / TWIPS_PER_PX;
+      expect(measure.columnWidths).toHaveLength(2);
+      expect(measure.columnWidths[0]).toBeCloseTo(preferredCellWidthPx, 0);
+      expect(measure.columnWidths[1]).toBeCloseTo(preferredCellWidthPx, 0);
+      expect(measure.totalWidth).toBeCloseTo(preferredCellWidthPx * 2, 0);
+    });
+
+    it('uses the row tcW total for a placeholder grid whose header row is a single span', async () => {
+      const PLACEHOLDER_GRID_COLUMN_TWIPS = 100;
+      const SPAN_CELL_WIDTH_TWIPS = 6000;
+      const CELL_WIDTH_TWIPS = 1500;
+      const TWIPS_PER_PX = 15;
+      const COLUMN_COUNT = 4;
+      const paragraph = (id: string, text: string): FlowBlock => ({
+        kind: 'paragraph',
+        id,
+        runs: [{ text, fontFamily: 'Arial', fontSize: 12 }],
+      });
+      const cell = (id: string, text: string, widthTwips: number, colSpan?: number) => ({
+        id,
+        ...(colSpan ? { colSpan } : {}),
+        blocks: [paragraph(`${id}-paragraph`, text)],
+        attrs: {
+          tableCellProperties: {
+            cellWidth: { value: widthTwips, type: 'dxa' },
+          },
+        },
+      });
+      const block: FlowBlock = {
+        kind: 'table',
+        id: 'table-placeholder-grid-span',
+        attrs: {
+          tableWidth: { value: PLACEHOLDER_GRID_COLUMN_TWIPS, type: 'auto' },
+        },
+        rows: [
+          { id: 'row-0', cells: [cell('cell-0-0', 'Quarterly summary', SPAN_CELL_WIDTH_TWIPS, COLUMN_COUNT)] },
+          {
+            id: 'row-1',
+            cells: [
+              cell('cell-1-0', 'Q1', CELL_WIDTH_TWIPS),
+              cell('cell-1-1', 'Q2', CELL_WIDTH_TWIPS),
+              cell('cell-1-2', 'Q3', CELL_WIDTH_TWIPS),
+              cell('cell-1-3', 'Q4', CELL_WIDTH_TWIPS),
+            ],
+          },
+        ],
+        columnWidths: Array.from({ length: COLUMN_COUNT }, () => PLACEHOLDER_GRID_COLUMN_TWIPS / TWIPS_PER_PX),
+      };
+
+      const measure = await measureBlock(block, { maxWidth: 624 });
+
+      expect(measure.kind).toBe('table');
+      if (measure.kind !== 'table') throw new Error('expected table measure');
+      // Word measures this document at 1503 twips per column. Spanned rows carry no
+      // per-column request into the solver, so only the total is pinned here.
+      expect(measure.totalWidth).toBeCloseTo(SPAN_CELL_WIDTH_TWIPS / TWIPS_PER_PX, 0);
+      expect(measure.columnWidths).toHaveLength(COLUMN_COUNT);
+    });
+
     it('does not stretch missing-grid AutoFit tables to fallback content width', async () => {
       const paragraph = (id: string, text: string): FlowBlock => ({
         kind: 'paragraph',
