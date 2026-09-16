@@ -121,7 +121,7 @@ export function normalizeRunAttrsFromOoxml(
 
   // SD-3098: w:rPr/w:rtl carries the run-level bidi override signal, whether it
   // comes from direct formatting or a character-style/docDefaults cascade layer.
-  // The painter reads TextRun.bidi.rtl for Word-parity dir + RLM date handling.
+  // The painter reads TextRun.bidi.rtl to resolve run direction.
   if (props.rtl) out.bidi = { rtl: true };
 
   return out;

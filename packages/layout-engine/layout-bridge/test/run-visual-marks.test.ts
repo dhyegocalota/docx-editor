@@ -107,8 +107,8 @@ describe('hashRunVisualMarks', () => {
     expect(hashRunVisualMarks(a)).toBe(hashRunVisualMarks(b));
   });
 
-  // SD-3098: DomPainter applies dir="rtl" + RLM injection based on run.bidi.rtl,
-  // so the dirty-run hash must change when bidi changes, otherwise an edit that
+  // DomPainter applies direction attributes based on run.bidi.rtl, so the
+  // dirty-run hash must change when bidi changes, otherwise an edit that
   // flips just <w:rtl/> reuses the stale measure/DOM.
   describe('bidi (SD-3098)', () => {
     const base = {

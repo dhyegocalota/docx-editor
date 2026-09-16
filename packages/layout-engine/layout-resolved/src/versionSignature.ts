@@ -475,7 +475,7 @@ export const deriveBlockVersion = (block: FlowBlock): string => {
               ].join(':'),
             )
             .join('|') ?? '',
-          // SD-3098: DomPainter reads run.bidi to apply dir + RLM injection; signature must include it.
+          // DomPainter reads run.bidi to apply direction attributes; signature must include it.
           textRun.bidi ? JSON.stringify(textRun.bidi) : '',
         ].join(',');
       })

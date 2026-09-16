@@ -49,12 +49,24 @@ describe('resolveRunDirectionAttribute', () => {
       ).toBe(null);
     });
 
-    it('returns "rtl" for date-like numeric (isolates the date as RTL unit)', () => {
+    it('returns "ltr" for Hebrew date-like numeric (keeps Word date order)', () => {
       expect(
         resolveRunDirectionAttribute({
-          runText: '2026-03-15',
-          effectiveText: '2026-03-15',
+          runText: '26/07/2026',
+          effectiveText: '26/07/2026',
           isRtlTagged: true,
+          bidiLanguage: 'he-IL',
+        }),
+      ).toBe('ltr');
+    });
+
+    it('returns "rtl" for Arabic date-like numeric', () => {
+      expect(
+        resolveRunDirectionAttribute({
+          runText: '23/03/2026',
+          effectiveText: '23/03/2026',
+          isRtlTagged: true,
+          bidiLanguage: 'ar-SA',
         }),
       ).toBe('rtl');
     });
@@ -157,30 +169,12 @@ describe('resolveRunDirectionAttribute', () => {
 });
 
 describe('normalizeRtlDateTokenForWordParity', () => {
-  const RLM = '\u200F';
-
-  it('wraps separators with RLM in date-like text', () => {
-    expect(normalizeRtlDateTokenForWordParity('2026-03-15')).toBe(`2026${RLM}-${RLM}03${RLM}-${RLM}15`);
+  it('leaves Hebrew date text unchanged', () => {
+    expect(normalizeRtlDateTokenForWordParity('26/07/2026', 'he-IL')).toBe('26/07/2026');
   });
 
-  it('handles slash separators', () => {
-    expect(normalizeRtlDateTokenForWordParity('15/03/2026')).toBe(`15${RLM}/${RLM}03${RLM}/${RLM}2026`);
-  });
-
-  it('handles dot separators', () => {
-    expect(normalizeRtlDateTokenForWordParity('1.2.3')).toBe(`1${RLM}.${RLM}2${RLM}.${RLM}3`);
-  });
-
-  it('wraps the leading sign too (no special-case for leading "-")', () => {
-    // Implementation is text.replace(/[./-]/g, ...). The leading sign is also
-    // a `-`, so it gets RLM-wrapped. This matches the pre-extraction behavior.
-    expect(normalizeRtlDateTokenForWordParity('-2026-03')).toBe(`${RLM}-${RLM}2026${RLM}-${RLM}03`);
-  });
-
-  it('returns unchanged for non-date text', () => {
-    expect(normalizeRtlDateTokenForWordParity('Hello world')).toBe('Hello world');
-    expect(normalizeRtlDateTokenForWordParity('2026')).toBe('2026'); // no separator
-    expect(normalizeRtlDateTokenForWordParity('שלום')).toBe('שלום');
+  it('preserves the Arabic date marker contract', () => {
+    expect(normalizeRtlDateTokenForWordParity('23/03/2026', 'ar-SA')).toBe('23\u200F/\u200F03\u200F/\u200F2026');
   });
 });
 

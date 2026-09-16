@@ -25,8 +25,8 @@ export const hashRunVisualMarks = (run: Run): string => {
   const textTransform = 'textTransform' in run ? run.textTransform : undefined;
   const vanish = 'vanish' in run ? run.vanish : undefined;
   const horizontalScale = 'horizontalScale' in run ? run.horizontalScale : undefined;
-  // SD-3098: DomPainter now reads `bidi.rtl` to apply dir="rtl"/dir="ltr" and the
-  // RLM separator injection for date-like tokens. Include it here so dirty-run
+  // DomPainter reads `bidi.rtl` to apply direction attributes, including for
+  // date-like tokens. Include it here so dirty-run
   // detection picks up rtl-only changes; otherwise an edit that flips just
   // <w:rtl/> could reuse stale measure/DOM.
   const bidi = 'bidi' in run ? run.bidi : undefined;

@@ -2,22 +2,23 @@
  * Run-level direction helpers for DomPainter.
  *
  * These helpers encode paint-time decisions about how to project the OOXML
- * `w:rPr/w:rtl` signal onto a rendered span's `dir` attribute, plus a narrow
- * Word-parity workaround for RTL-tagged date-like numeric runs.
+ * `w:rPr/w:rtl` signal onto a rendered span's `dir` attribute, including the
+ * Word-compatible treatment for RTL-tagged numeric date runs.
  *
  * The heuristic is intentionally scoped to current Word-parity fixtures
- * (SD-3098 mixed-bidi date tokens). It is NOT a full implementation of
+ * (SD-4197 Hebrew and Arabic numeric date tokens). It is NOT a full implementation of
  * §17.3.2.30 semantics - notably absent: `w:dir` embedding (§17.3.2.8),
- * `w:bdo` override (§17.3.2.3), and `w:lang/@bidi` Hebrew vs Arabic numeric
- * differences. Those gaps are tracked separately; see SD-2767 follow-ups.
+ * `w:bdo` override (§17.3.2.3), and language-specific handling beyond the
+ * Hebrew and Arabic date cases covered here. Those gaps are tracked separately;
+ * see SD-2767 follow-ups.
  *
  * @spec ECMA-376 §17.3.2.30 (rtl), §17.17.4 (boolean property)
  */
 
 /**
  * Matches numeric date-like tokens such as `2026-03-15`, `15/03/2026`, `1.2.3`.
- * Used by both the run direction resolver and the paint-time RLM injection
- * for Word parity on RTL date strings.
+ * Used by the run direction resolver to keep numeric dates in their logical
+ * order within RTL paragraphs.
  */
 export const RTL_DATE_LIKE_TOKEN_RE = /^-?\d+(?:[./-]\d+)+$/;
 
@@ -43,20 +44,15 @@ export const LATIN_DIGIT_NEUTRAL_ONLY_RE = /^[\s0-9A-Za-z./\-_:,+()]+$/;
 
 const RLM = '\u200F';
 
+const isArabicBidiLanguage = (language: string | undefined): boolean => /^ar(?:[-_]|$)/iu.test(language?.trim() ?? '');
+
 /**
- * Word-parity workaround for RTL date-like tokens.
- *
- * Word internally injects RLM around numeric separators in RTL date strings,
- * preserving LTR order for the digits while keeping the run RTL. The browser's
- * UBA alone does not match this. We mirror Word by injecting RLM at paint
- * time only - the DOM text differs from the PM model and from the exported
- * OOXML, which both keep the original separators.
- *
- * Intentionally narrow: only matches numeric date-like patterns so other
- * numeric content is unaffected. Scope is current SD-3098 fixtures.
+ * Keeps the legacy Arabic date rendering contract isolated from Hebrew date
+ * runs. Arabic RTL dates retain the directional marks used by the SD-3098
+ * fixture; Hebrew dates keep their original logical text.
  */
-export const normalizeRtlDateTokenForWordParity = (text: string): string => {
-  if (!RTL_DATE_LIKE_TOKEN_RE.test(text)) {
+export const normalizeRtlDateTokenForWordParity = (text: string, bidiLanguage: string | undefined): string => {
+  if (!isArabicBidiLanguage(bidiLanguage) || !RTL_DATE_LIKE_TOKEN_RE.test(text)) {
     return text;
   }
   return text.replace(/[./-]/g, (separator) => `${RLM}${separator}${RLM}`);
@@ -67,7 +63,8 @@ export const normalizeRtlDateTokenForWordParity = (text: string): string => {
  *
  * Decision table:
  * - rtl-tagged + empty text -> 'rtl' (no content to classify, honor source signal)
- * - rtl-tagged + date-like numeric -> 'rtl' (isolates the date as a unit)
+ * - rtl-tagged + Arabic date-like numeric -> 'rtl' (legacy Arabic Word-parity contract)
+ * - rtl-tagged + other date-like numeric -> 'ltr' (keeps the date in logical order)
  * - rtl-tagged + contains strong-RTL chars -> 'rtl' (standard case)
  * - rtl-tagged + only Latin/digit/neutral -> null (per §17.3.2.30, unspecified;
  *   Word does not visually reorder these, so omit dir to inherit paragraph)
@@ -85,11 +82,13 @@ export const resolveRunDirectionAttribute = (opts: {
   effectiveText: string;
   /** True when the source OOXML carries `w:rPr/w:rtl`. */
   isRtlTagged: boolean;
+  /** Resolved `w:rPr/w:lang/@w:bidi` value, when the source provides one. */
+  bidiLanguage?: string;
 }): RunDirAttribute => {
   if (opts.isRtlTagged) {
     const sample = (opts.runText ?? opts.effectiveText).trim();
     if (!sample) return 'rtl';
-    if (RTL_DATE_LIKE_TOKEN_RE.test(sample)) return 'rtl';
+    if (RTL_DATE_LIKE_TOKEN_RE.test(sample)) return isArabicBidiLanguage(opts.bidiLanguage) ? 'rtl' : 'ltr';
     if (STRONG_RTL_CHAR_RE.test(sample)) return 'rtl';
     if (LATIN_DIGIT_NEUTRAL_ONLY_RE.test(sample)) return null;
     return 'rtl';

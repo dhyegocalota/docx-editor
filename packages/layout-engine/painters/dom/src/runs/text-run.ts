@@ -395,8 +395,8 @@ export const renderTextRun = (
   const elem = isActiveLink ? renderContext.doc.createElement('a') : renderContext.doc.createElement('span');
   elem.classList.add(CLASS_NAMES.textRun);
   const text = resolveRunText(run, context);
-  const effectiveText =
-    run.bidi?.rtl === true && typeof text === 'string' ? normalizeRtlDateTokenForWordParity(text) : text;
+  const bidiLanguage = run.script?.language?.complexScript;
+  const effectiveText = run.bidi?.rtl === true ? normalizeRtlDateTokenForWordParity(text, bidiLanguage) : text;
   setTextContentWithFormattingSpaceMarks(elem, effectiveText, renderContext.doc, renderContext.showFormattingMarks);
 
   if (linkData?.dataset) {
@@ -427,6 +427,7 @@ export const renderTextRun = (
     runText: run.text,
     effectiveText,
     isRtlTagged: run.bidi?.rtl === true,
+    bidiLanguage,
   });
   if (dirAttr) {
     elem.setAttribute('dir', dirAttr);

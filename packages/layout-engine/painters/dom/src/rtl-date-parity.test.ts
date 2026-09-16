@@ -19,9 +19,9 @@ const makeMeasure = (runLength: number): Measure => ({
 });
 
 describe('RTL date parity', () => {
-  it('injects RLM around date separators for rtl date-like text runs', () => {
-    const blockId = 'rtl-date';
-    const runText = '23.03.2026';
+  it('keeps Hebrew rtl-tagged date-like text runs in Word order', () => {
+    const blockId = 'hebrew-rtl-date';
+    const runText = '26/07/2026';
     const block: FlowBlock = {
       kind: 'paragraph',
       id: blockId,
@@ -32,6 +32,7 @@ describe('RTL date parity', () => {
           fontFamily: 'David, sans-serif',
           fontSize: 16,
           bidi: { rtl: true },
+          script: { language: { complexScript: 'he-IL' } },
           pmStart: 1,
           pmEnd: 11,
         },
@@ -44,8 +45,38 @@ describe('RTL date parity', () => {
 
     const span = mount.querySelector('.superdoc-line span');
     expect(span).toBeTruthy();
+    expect(span?.getAttribute('dir')).toBe('ltr');
+    expect(span?.textContent).toBe(runText);
+    expect(span?.textContent).not.toContain('\u200F');
+  });
+
+  it('retains the Arabic rtl date marker contract', () => {
+    const blockId = 'arabic-rtl-date';
+    const runText = '23/03/2026';
+    const block: FlowBlock = {
+      kind: 'paragraph',
+      id: blockId,
+      attrs: { directionContext: { inlineDirection: 'rtl', writingMode: 'horizontal-tb' } },
+      runs: [
+        {
+          text: runText,
+          fontFamily: 'David, sans-serif',
+          fontSize: 16,
+          bidi: { rtl: true },
+          script: { language: { complexScript: 'ar-SA' } },
+          pmStart: 1,
+          pmEnd: 11,
+        },
+      ],
+    };
+
+    const mount = document.createElement('div');
+    const painter = createTestPainter({ blocks: [block], measures: [makeMeasure(runText.length)] });
+    painter.paint(makeLayout(blockId), mount);
+
+    const span = mount.querySelector('.superdoc-line span');
     expect(span?.getAttribute('dir')).toBe('rtl');
-    expect(span?.textContent).toBe('23\u200F.\u200F03\u200F.\u200F2026');
+    expect(span?.textContent).toBe('23\u200F/\u200F03\u200F/\u200F2026');
   });
 
   it('forces ltr direction for non-rtl date-like text runs', () => {
