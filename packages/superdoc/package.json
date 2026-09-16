@@ -126,7 +126,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@superdoc/docx-engine": "0.15.0-next.3",
+    "@superdoc/docx-engine": "0.15.0-next.4",
     "@types/mdast": "catalog:",
     "@types/ws": "catalog:",
     "buffer-crc32": "catalog:",
