@@ -2373,6 +2373,27 @@ const trackChangeCustomAttributeSchema: JsonSchema = objectSchema(
   },
   ['name', 'namespaceUri', 'localName', 'value'],
 );
+const trackChangeRewriteReviewGroupSchema = objectSchema(
+  {
+    kind: { const: 'text-rewrite' },
+    role: { enum: ['parent', 'child'] },
+    parentId: { type: 'string' },
+    childChangeIds: { type: 'array', items: { type: 'string' } },
+    members: {
+      type: 'array',
+      items: objectSchema(
+        {
+          id: { type: 'string' },
+          type: { enum: ['insertion', 'deletion', 'replacement'] },
+          subtype: { type: 'string' },
+          sourceIds: trackChangeSourceIdsSchema,
+        },
+        ['id', 'type', 'subtype', 'sourceIds'],
+      ),
+    },
+  },
+  ['kind', 'role', 'childChangeIds', 'members'],
+);
 const trackChangeInfoSchema = objectSchema(
   {
     address: trackedChangeAddressSchema,
@@ -2386,6 +2407,7 @@ const trackChangeInfoSchema = objectSchema(
     sourceIds: trackChangeSourceIdsSchema,
     wordRevisionIds: trackChangeWordRevisionIdsSchema,
     revisionGroupId: { type: 'string' },
+    reviewGroup: trackChangeRewriteReviewGroupSchema,
     splitFromId: { oneOf: [{ type: 'string' }, { type: 'null' }] },
     replacement: trackChangeReplacementSchema,
     author: { type: 'string' },
@@ -2442,6 +2464,7 @@ const trackChangeDomainItemSchema = discoveryItemSchema(
     sourceIds: trackChangeSourceIdsSchema,
     wordRevisionIds: trackChangeWordRevisionIdsSchema,
     revisionGroupId: { type: 'string' },
+    reviewGroup: trackChangeRewriteReviewGroupSchema,
     author: { type: 'string' },
     authorEmail: { type: 'string' },
     authorImage: { type: 'string' },

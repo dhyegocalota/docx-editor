@@ -54,6 +54,19 @@ export interface TrackChangeWordRevisionIds {
   /** Raw imported Word OOXML revision ID (`w:id`) from a `<w:rPrChange>` element when present. */
   format?: string;
 }
+/** Durable membership of one authored text rewrite; children can be decided individually. */
+export interface TrackChangeRewriteReviewGroup {
+  kind: 'text-rewrite';
+  role: 'parent' | 'child';
+  parentId?: string;
+  childChangeIds: readonly string[];
+  members: readonly {
+    id: string;
+    type: 'insertion' | 'deletion' | 'replacement';
+    subtype: string;
+    sourceIds: TrackChangeSourceIds;
+  }[];
+}
 /**
  * Canonical multi-side source provenance per spec §3 / §4. Each value is
  * raw, source-format identity (Word `w:id`, `w:rsidR` / `w:rsidDel`, future
@@ -565,6 +578,7 @@ export interface TrackChangeInfo {
   wordRevisionIds?: TrackChangeWordRevisionIds;
   /** Stable revision-group id (spec §3, fragment lineage). */
   revisionGroupId?: string;
+  reviewGroup?: TrackChangeRewriteReviewGroup;
   /** Set to the retired source id when this change is a partial-split fragment; otherwise `null`. */
   splitFromId?: string | null;
   /** Replacement side metadata (`grouped` mode replacements only). */
@@ -696,6 +710,7 @@ export interface TrackChangeDomain {
   structuralDescriptor?: TrackChangeStructuralDescriptor;
   /** Stable revision-group id. */
   revisionGroupId?: string;
+  reviewGroup?: TrackChangeRewriteReviewGroup;
   /** Set to the retired source id when this list item is a partial-split fragment; otherwise `null`. */
   splitFromId?: string | null;
   /**
