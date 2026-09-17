@@ -5125,18 +5125,23 @@ export function createSuperDocUI(options: SuperDocUIOptions): SuperDocUI {
   };
 
   const findTrackChangeForPermission = (id: string): LooseRecord | null => {
-    // AIDEV-NOTE: `state` is assigned from the first `computeState()` result, so
-    // this lookup runs during that pass before the slice exists.
-    const fromSlice = state?.trackChanges?.items?.find((item) => readEntityId(item) === id);
-    if (fromSlice) return trackChangesItemPayload(fromSlice);
-    const listed = safeCall<unknown>(() => (getDoc()?.trackChanges as LooseRecord | undefined)?.list?.(), null);
-    if (!listed || typeof listed !== 'object' || typeof (listed as LooseRecord).then === 'function') return null;
-    const items = (listed as LooseRecord).items;
-    if (!Array.isArray(items)) return null;
-    const row = items.find((item) => readEntityId(item) === id);
-    if (!row) return null;
+    syncCoordinatorEditor();
+    let items: readonly unknown[] | null;
+    if (hasV2ReviewWindowFeed()) {
+      const current = readAllStoryTrackChanges()?.find((item) => readEntityId(item) === id);
+      if (current) return trackChangesItemPayload(current);
+      // An explicit directory consumer may know an off-window author while
+      // its catalog refreshes. Passive permission checks must not start I/O.
+      const directory = asyncReads.get('trackChanges');
+      items = directory?.hasSettled && Array.isArray(directory.value) ? directory.value : null;
+    } else {
+      // Retain known ownership during refresh; treating it as unknown can
+      // change OWN to OTHER and incorrectly enable a denied decision.
+      items = readTrackChangesDirectory('trackChanges:all').value;
+    }
+    const row = items?.find((item) => readEntityId(item) === id);
     const projected = projectTrackChangesItem(row);
-    return projected ? trackChangesItemPayload(projected) : (row as LooseRecord);
+    return projected ? trackChangesItemPayload(projected) : null;
   };
 
   const trackedChangeDecisionPermissionReason = (
