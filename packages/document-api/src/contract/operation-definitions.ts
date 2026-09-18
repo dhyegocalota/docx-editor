@@ -4884,7 +4884,7 @@ export const OPERATION_DEFINITIONS = {
     metadata: mutationOperation({
       idempotency: 'non-idempotent',
       supportsDryRun: true,
-      supportsTrackedMode: false,
+      supportsTrackedMode: true,
       possibleFailureCodes: ['INVALID_TARGET', 'NO_OP'],
       throws: T_CC_MUTATION,
     }),

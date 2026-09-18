@@ -231,6 +231,7 @@ export interface ContentControlMutationSuccess {
   success: true;
   contentControl: ContentControlTarget;
   updatedRef?: ContentControlTarget;
+  affectedStories?: StoryLocator[];
   trackedChangeRefs?: ReceiptInsert[];
 }
 

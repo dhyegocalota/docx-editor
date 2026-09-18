@@ -4,11 +4,28 @@ declare const doc: BrowserDocumentApi;
 declare const syncDoc: DocumentApi;
 declare const kind: 'block' | 'inline';
 
-doc.create.contentControl({
-  kind: 'inline',
-  controlType: 'text',
-  tag: 'client.legalName',
-  content: 'Acme Products, Inc.',
+const trackedHeaderControl = doc.create.contentControl(
+  {
+    kind: 'inline',
+    controlType: 'text',
+    tag: 'client.legalName',
+    content: 'Acme Products, Inc.',
+    at: {
+      kind: 'selection',
+      story: { kind: 'story', storyType: 'headerFooterPart', refId: 'rId7' },
+      start: { kind: 'text', blockId: 'header-p1', offset: 0 },
+      end: { kind: 'text', blockId: 'header-p1', offset: 0 },
+    },
+  },
+  { changeMode: 'tracked' },
+);
+
+void Promise.resolve(trackedHeaderControl).then((result) => {
+  if (!result.success) return;
+  const affectedStoryKind: 'story' | undefined = result.affectedStories?.[0]?.kind;
+  const trackedStoryKind: 'story' | undefined = result.trackedChangeRefs?.[0]?.story?.kind;
+  void affectedStoryKind;
+  void trackedStoryKind;
 });
 
 doc.create.contentControl({ kind, content: 'Plain text for either field shape' });

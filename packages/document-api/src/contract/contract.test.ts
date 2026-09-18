@@ -100,6 +100,10 @@ function expectBroadSDFragmentSchema(schema: ContractTestSchemaShape | undefined
 }
 
 describe('document-api contract catalog', () => {
+  it('advertises tracked create.contentControl support for its bounded supported shapes', () => {
+    expect(OPERATION_DEFINITIONS['create.contentControl'].metadata.supportsTrackedMode).toBe(true);
+  });
+
   it('publishes the complete outbound projection DTO vocabulary without changing operation returns', () => {
     const schemas = buildInternalContractSchemas();
     const defs = schemas.$defs as Record<string, ContractTestSchemaShape>;

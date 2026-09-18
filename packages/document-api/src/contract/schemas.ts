@@ -3324,6 +3324,8 @@ const contentControlMutationSuccessSchema = objectSchema(
     success: { const: true },
     contentControl: contentControlTargetSchema,
     updatedRef: contentControlTargetSchema,
+    affectedStories: arraySchema(ref('StoryLocator')),
+    trackedChangeRefs: arraySchema(trackChangeRefSchema),
   },
   ['success', 'contentControl'],
 );
