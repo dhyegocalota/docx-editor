@@ -62,7 +62,7 @@ export interface TrackChangeRewriteReviewGroup {
   childChangeIds: readonly string[];
   members: readonly {
     id: string;
-    type: 'insertion' | 'deletion' | 'replacement';
+    type: TrackChangeBroadType;
     subtype: string;
     sourceIds: TrackChangeSourceIds;
   }[];

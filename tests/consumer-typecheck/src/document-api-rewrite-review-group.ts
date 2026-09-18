@@ -16,7 +16,7 @@ for (const change of changes.items) {
   }
   for (const member of group.members) {
     const id: string = member.id;
-    const type: 'insertion' | 'deletion' | 'replacement' = member.type;
+    const type: 'insertion' | 'deletion' | 'replacement' | 'formatting' | 'move' | 'structural' = member.type;
     const rawId: string | undefined = member.sourceIds.wordIdInsert;
     void [id, type, rawId];
   }

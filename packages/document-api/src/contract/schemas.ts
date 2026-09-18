@@ -2384,7 +2384,7 @@ const trackChangeRewriteReviewGroupSchema = objectSchema(
       items: objectSchema(
         {
           id: { type: 'string' },
-          type: { enum: ['insertion', 'deletion', 'replacement'] },
+          type: { enum: [...trackChangeBroadTypeEnum] },
           subtype: { type: 'string' },
           sourceIds: trackChangeSourceIdsSchema,
         },
