@@ -2,7 +2,11 @@
 
 Vue 3 wrapper for the [SuperDoc](https://superdoc.dev) browser editor.
 
-> This package is not published to npm yet. For now, it only builds inside this workspace with `superdoc@2`.
+Install the wrapper with Vue 3 and SuperDoc 2:
+
+```sh
+npm install @superdoc/vue superdoc@2 vue@^3.5.11
+```
 
 `SuperDocEditor` creates the editor, rebuilds it when needed, and destroys it on unmount. Use props and events
 for common tasks or a template ref for the core `SuperDoc` instance.
@@ -56,7 +60,7 @@ const file = ref<File | null>(null);
 const editor = useTemplateRef<SuperDocEditorExpose>('editor');
 
 async function exportDocx() {
-  await editor.value?.getInstance()?.export({ triggerDownload: true });
+  return await editor.value?.getInstance()?.export({ triggerDownload: false });
 }
 </script>
 
@@ -64,6 +68,10 @@ async function exportDocx() {
   <SuperDocEditor ref="editor" :document="file" />
 </template>
 ```
+
+`export({ triggerDownload: false })` returns the edited DOCX as a `Blob` for uploading or storing.
+`save()` does not return the DOCX file. Keep the core instance out of deep-reactive state; access it through
+`getInstance()` or a Vue `shallowRef`.
 
 ## Events and errors
 
