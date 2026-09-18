@@ -1681,7 +1681,7 @@ const publishV2PendingPositionEntry = (entry) => {
 // SuperDoc.vue side only feeds payloads and observes the published state.
 const v2GeometryPublisher = resolvedEditorIntegration.createGeometryPublisher({
   getLayersContainer: () => layers.value ?? null,
-  isCommentsEnabled: () => shouldRenderCommentsInViewing.value,
+  isCommentsEnabled: () => Boolean(commentsModuleConfig.value) && shouldRenderCommentsInViewing.value,
   publishPositions: (positions, options) => handleEditorLocationsUpdate(positions, options),
   clearPositions: () => {
     commentsStore.clearEditorCommentPositions?.();
