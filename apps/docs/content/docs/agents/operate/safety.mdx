@@ -12,7 +12,7 @@ Set `changeMode: 'tracked'` when an edit changes meaning rather than formatting.
 
 The argument is optional and defaults to a direct edit, so asking for tracked mode in the prompt is not enough. When a model chooses the arguments, check for `changeMode: 'tracked'` before dispatching and refuse the call without it.
 
-Check the action too. Not every action honors `changeMode` — `apply_style`, `set_paragraph_spacing`, and `insert_page_break` ignore it and always edit directly, while `move_range` accepts it and then fails without mutating. The tool schema accepts the argument in every case. An allowlist of tracked-capable actions is the only reliable guard; without one, a run that promised reviewable suggestions can quietly rewrite the document.
+Check the action too. Not every action honors `changeMode` — `apply_style`, `set_paragraph_spacing`, and `insert_page_break` ignore it and always edit directly, while `move_range` declares it but rejects a tracked request rather than applying an untracked edit. The tool schema accepts the argument in every case. An allowlist of tracked-capable actions is the only reliable guard; without one, a run that promised reviewable suggestions can quietly rewrite the document.
 
 Treat a successful receipt as a claim, not proof. Actions that support `dryRun` report success while applying nothing, so compare the receipt's before and after revisions when you need to know a change actually landed.
 
@@ -69,6 +69,19 @@ const toolkit = await createAgentToolkit({
 ```
 
 Exclusions apply to the tools, the prompt, and the dispatcher together, so an excluded action is refused even if the model guesses its name.
+
+Naming actions one by one works when you know which ones worry you. When the requirement is that a person sees every change, name the policy instead:
+
+```ts
+const toolkit = await createAgentToolkit({
+  provider: 'openai',
+  preset: 'core',
+  enforceChangeMode: 'tracked',
+  allowDirectActions: ['add_comments'],
+});
+```
+
+`enforceChangeMode: 'tracked'` is fail-closed. Every action that cannot record a tracked change is removed from the surface and refused at dispatch, and every action that can is forced to run tracked whatever the call asked for. The difference matters: an exclusion list protects against the actions you thought of, while the policy protects against the ones you did not, including actions added in a later SDK release. `allowDirectActions` reopens the ones a workflow genuinely needs, and receipts report `changeMode` with `changeModeForced` so a log shows which calls were upgraded. [Build an agent](/agents/build/build-an-agent#do-not-rely-on-the-prompt-for-tracked-mode) covers the option in full.
 
 ## Do not log document contents
 

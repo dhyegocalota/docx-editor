@@ -105,13 +105,64 @@ Check the tool name against the list you handed the model before dispatching. Tw
 
 ## Do not rely on the prompt for tracked mode
 
-`changeMode` is optional and defaults to a direct edit, so an instruction to work in tracked mode is a request the model can quietly skip. The example rejects any mutating call that omits `changeMode: 'tracked'` before it reaches the document, and returns that rejection as a receipt so the model can retry with the argument.
+`changeMode` is optional and defaults to a direct edit, so an instruction to work in tracked mode is a request the model can quietly skip. The argument alone is not sufficient either. `superdoc_perform_action` advertises `changeMode` once for every action, but some actions never record a tracked change: `apply_style`, `set_paragraph_spacing`, and `insert_page_break` ignore the argument and edit directly, and comment and review actions have no tracked form by nature. Passing `changeMode: 'tracked'` to any of these looks compliant and produces no suggestion. The [action reference](/agents/build/actions#changemode) marks which actions honor the argument.
 
-The argument alone is not sufficient either. `superdoc_perform_action` advertises `changeMode` once for every action, but only some of them honor it: `apply_style`, `set_paragraph_spacing`, and `insert_page_break` ignore it and always edit directly. `move_range` is a third case — it accepts the argument and then fails without mutating, because a block-range deletion cannot be tracked. Passing `changeMode: 'tracked'` to any of these looks compliant and does not produce a suggestion, so the example allows only the actions that actually record one and tells the model to pick a different action otherwise. The [action reference](/agents/build/actions#changemode) marks which actions honor the argument.
+Ask the toolkit to enforce the policy instead of checking each call yourself:
 
-A rejection is different from a dispatched failure. It never touched the document, so the model can correct it on the next turn and the run continues. A thrown call splits the same way: malformed arguments never reach the document, while a throw from `dispatch` itself may have applied part of the edit before failing, so that one is terminal.
+```ts
+const { tools, systemPrompt, dispatch } = await createAgentToolkit({
+  provider: 'openai',
+  preset: 'core',
+  enforceChangeMode: 'tracked',
+  allowDirectActions: ['add_comments'],
+});
+```
 
-Enforce the constraint in code whenever the output is supposed to be reviewable. A prompt describes intent, and a permissive schema describes what is accepted rather than what is honored. Only the dispatch boundary decides what reaches the document.
+`enforceChangeMode: 'tracked'` is fail-closed and applies to all three pieces at once:
+
+- Every action that cannot record a tracked change leaves the tool enum and the system prompt, and `dispatch` refuses it with an `INVALID_ARGUMENT` error whose `details.reason` is `direct-only`. The model never learns the verb exists.
+- Every remaining action runs tracked whatever the call said. A call that omits `changeMode` or passes `'direct'` is upgraded, and the receipt reports `changeMode: 'tracked'` with `changeModeForced: true` so your logs show the upgrade happened.
+
+`allowDirectActions` names the direct-only actions your workflow still needs. They stay advertised and run directly, and their receipts say `changeMode: 'direct'`. The list requires `enforceChangeMode`, rejects unknown names, and ignores names that already record tracked changes, so it keeps working when an action gains tracked support. `excludeActions` still wins: an action in both lists stays hidden.
+
+A reviewer agent usually wants the four comment actions and nothing else. They annotate without altering a character of document content, so the guarantee survives intact:
+
+```ts
+allowDirectActions: ['add_comments', 'comment_paragraphs', 'reply_to_comment', 'resolve_comments'];
+```
+
+A drafting agent typically allows nothing. Pass `['*']` to allow every direct-only action while still forcing tracked mode on everything that supports it — the tools and prompt then match an unenforced agent exactly, and the policy's remaining job is the forced upgrade. Weigh that one carefully: it reopens the eight actions that change the document with nothing to review (`apply_style`, `style_table`, `move_table`, `move_range`, `set_paragraph_spacing`, `insert_page_break`, `add_hyperlink`, `split_list`), plus the review and history actions, which materialize or discard existing tracked changes.
+
+Which actions are which is published rather than guessed. `getActionDispositions()` returns the `tracked` or `direct` disposition of every action, and the core preset's catalog carries the same table under `dispositions`. Read one of those rather than hardcoding a list, so your configuration follows the registry when an action changes bucket. The [action reference](/agents/build/actions#changemode) carries the same dispositions per action alongside each action's arguments.
+
+The policy is the same on every surface, because all three run the same preset code. The Python SDK takes `enforce_change_mode` and `allow_direct_actions`:
+
+```python
+toolkit = create_agent_toolkit({
+    'provider': 'openai',
+    'preset': 'core',
+    'enforceChangeMode': 'tracked',
+    'allowDirectActions': ['add_comments'],
+})
+```
+
+The CLI takes them as flags on `preset get-tools`, `preset get-system-prompt`, and `preset dispatch`. Pass the same values to all three so the advertised surface and the dispatch guard agree:
+
+```bash
+superdoc preset get-tools --provider openai --preset core \
+  --enforceChangeMode tracked --allowDirectActions add_comments
+
+superdoc preset dispatch --session <id> --preset core \
+  --tool-name superdoc_perform_action \
+  --enforceChangeMode tracked --allowDirectActions add_comments \
+  --args-json '{"action":"insert_paragraphs","text":"Proposed clause."}'
+```
+
+`--allowDirectActions` is a comma-separated list, and `*` allows every direct-only action.
+
+Two things the policy does not do. It does not audit what the engine produced: a multi-step action can apply its first steps as tracked changes and then report `partial` when the engine refuses a later one, and the receipt is where that shows up. And it does not link receipts to the tracked changes they created; count them with `superdoc_inspect` when you need that evidence.
+
+A rejection is different from a dispatched failure. It never touched the document, so the model can correct it on the next turn and the run continues. A thrown call splits the same way: malformed arguments and policy refusals never reach the document, while a throw from `dispatch` itself may have applied part of the edit before failing, so that one is terminal.
 
 ## What this loop does not prove
 

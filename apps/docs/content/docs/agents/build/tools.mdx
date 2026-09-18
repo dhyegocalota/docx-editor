@@ -37,6 +37,8 @@ An agent that proposes edits but never resolves them is a common shape: it can s
 
 Exclusions apply to all three pieces at once. The action leaves the tool enum, its documentation leaves the system prompt, and `dispatch` refuses it even if the model guesses the name. An unknown action name throws immediately rather than silently doing nothing, so a typo in an exclusion list surfaces at startup instead of in production.
 
+`enforceChangeMode: 'tracked'` narrows the surface by policy instead of by name: every action that cannot record a tracked change is excluded the same way, every other action is forced to run tracked, and `allowDirectActions` reopens the direct-only actions a workflow still needs. [Build an agent](/agents/build/build-an-agent#do-not-rely-on-the-prompt-for-tracked-mode) covers it in full.
+
 ## Prompt caching
 
 Tool definitions and system prompts are stable across requests, so they cache well:

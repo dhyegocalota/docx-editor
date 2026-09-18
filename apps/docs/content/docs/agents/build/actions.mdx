@@ -66,7 +66,7 @@ Actions that insert content take a `placement`:
 
 ## changeMode
 
-Actions that accept `changeMode` record the edit as a tracked change when it is `"tracked"` and edit directly otherwise. The tool schema advertises the argument once for the whole tool, so the table below is the only place that says which actions honor it. Passing it to an action marked **No** looks compliant and produces a direct edit. `move_range` accepts the argument and then fails without mutating, because a block-range deletion cannot be tracked.
+Actions that accept `changeMode` record the edit as a tracked change when it is `"tracked"` and edit directly otherwise. The tool schema advertises the argument once for the whole tool, so the table below is the only place that says which actions honor it. Passing it to an action marked **No** looks compliant and produces a direct edit. `move_range` declares the argument but does not support tracked mode, and rejects the request rather than applying an untracked edit.
 
 The [safety guide](/agents/operate/safety) explains why a loop that promises reviewable output must enforce this allowlist in code.
 
