@@ -811,4 +811,25 @@ describe('create.contentControl validation', () => {
     });
     expect(adapter.create).toHaveBeenCalled();
   });
+
+  it('accepts a list item as a node-edge selection boundary', () => {
+    const adapter = { create: mock(noop) } as any;
+    executeCreateContentControl(adapter, {
+      kind: 'block',
+      at: {
+        kind: 'selection',
+        start: {
+          kind: 'nodeEdge',
+          node: { kind: 'block', nodeType: 'listItem', nodeId: 'item-1' },
+          edge: 'before',
+        },
+        end: {
+          kind: 'nodeEdge',
+          node: { kind: 'block', nodeType: 'paragraph', nodeId: 'paragraph-2' },
+          edge: 'after',
+        },
+      },
+    });
+    expect(adapter.create).toHaveBeenCalled();
+  });
 });

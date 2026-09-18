@@ -1,6 +1,7 @@
-import type { BrowserDocumentApi } from 'superdoc/ui';
+import type { BrowserDocumentApi, DocumentApi } from 'superdoc/ui';
 
 declare const doc: BrowserDocumentApi;
+declare const syncDoc: DocumentApi;
 declare const kind: 'block' | 'inline';
 
 doc.create.contentControl({
@@ -11,6 +12,32 @@ doc.create.contentControl({
 });
 
 doc.create.contentControl({ kind, content: 'Plain text for either field shape' });
+
+const listBoundaryInput: Parameters<DocumentApi['create']['contentControl']>[0] = {
+  kind: 'block',
+  tag: 'agreement.requirements',
+  at: {
+    kind: 'selection',
+    start: {
+      kind: 'nodeEdge',
+      node: { kind: 'block', nodeType: 'listItem', nodeId: 'requirement-1' },
+      edge: 'before',
+    },
+    end: {
+      kind: 'nodeEdge',
+      node: { kind: 'block', nodeType: 'paragraph', nodeId: 'approval' },
+      edge: 'after',
+    },
+  },
+};
+const listBoundaryResult = syncDoc.create.contentControl(listBoundaryInput);
+if (listBoundaryResult.success) {
+  const createdControlId: string = listBoundaryResult.contentControl.nodeId;
+  void createdControlId;
+}
+const browserListBoundaryResult: ReturnType<BrowserDocumentApi['create']['contentControl']> =
+  doc.create.contentControl(listBoundaryInput);
+void browserListBoundaryResult;
 
 doc.create.contentControl({
   kind: 'block',

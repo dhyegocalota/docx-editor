@@ -68,13 +68,13 @@ export type TextTarget = {
  *
  * Excludes:
  * - `tableRow`, `tableCell`: row/column semantics out of scope
- * - `listItem`: derived from paragraph attrs, no distinct PM wrapper node
  */
-export type SelectionEdgeNodeType = Exclude<BlockNodeType, 'tableRow' | 'tableCell' | 'listItem'>;
+export type SelectionEdgeNodeType = Exclude<BlockNodeType, 'tableRow' | 'tableCell'>;
 
 export const SELECTION_EDGE_NODE_TYPES = [
   'paragraph',
   'heading',
+  'listItem',
   'table',
   'tableOfContents',
   'sdt',
